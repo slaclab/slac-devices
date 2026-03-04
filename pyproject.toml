@@ -15,6 +15,7 @@ dependencies = [
     "pydantic",
     "pyyaml",
     "pyepics",
+    "slac-db @ git+ssh://git@github.com/slaclab/slac-db.git"
 ]
 description = "Tools to support high level application development at LCLS using Python"
 dynamic = ["version"]
