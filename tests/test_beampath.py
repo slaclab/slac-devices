@@ -75,6 +75,9 @@ class TestBeampath(unittest.TestCase):
     def test_bpms_returns_empty_dict_when_none_configured(self):
         self.assertEqual(self.beampath.bpms, {})
 
+    def test_tcavs_returns_empty_dict_when_none_configured(self):
+        self.assertEqual(self.beampath.tcavs, {})
+
     # --- find ---
 
     def test_find_returns_device_when_present(self):

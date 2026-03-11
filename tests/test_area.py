@@ -62,3 +62,15 @@ class TestArea(unittest.TestCase):
         area = Area(name="empty_area")
         self.assertFalse(area.does_magnet_exist("M1"))
         self.assertFalse(area.does_screen_exist("S1"))
+
+    def test_area_accepts_tcavs_field_and_records_invalid_tcav(self):
+        invalid_tcavs = {
+            "TCAV3": {
+                "controls_information": {"PVs": {}},
+                "metadata": {},
+            }
+        }
+        area = Area(name="L3", tcavs=invalid_tcavs)
+        self.assertIsNone(area.tcav_collection)
+        self.assertIn("tcavs", area.validation_errors)
+        self.assertIn("TCAV3", area.validation_errors["tcavs"])
