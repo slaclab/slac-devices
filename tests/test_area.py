@@ -2,6 +2,7 @@ import unittest
 import yaml
 from copy import deepcopy
 from slac_devices.area import Area
+from slac_devices.screen import Screen
 from pathlib import Path
 
 
@@ -55,6 +56,7 @@ class TestArea(unittest.TestCase):
         self.assertNotIn(bad_name, area.screens)
         self.assertIn("screens", area.validation_errors)
         self.assertIn(bad_name, area.validation_errors["screens"])
+        self.assertIsInstance(area.screens[good_name], Screen)
 
     def test_does_device_exist_is_safe_when_collection_missing(self):
         area = Area(name="empty_area")

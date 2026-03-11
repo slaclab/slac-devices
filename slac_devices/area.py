@@ -113,7 +113,7 @@ class Area(slac_devices.BaseModel):
         collection_name: str,
         errors: Dict[str, Dict[str, str]],
     ) -> Dict[str, Any]:
-        """Keep valid devices and record validation failures by name."""
+        """Keep valid device model objects and record failures by name."""
         if not devices:
             return {}
         if not isinstance(devices, dict):
@@ -127,8 +127,7 @@ class Area(slac_devices.BaseModel):
             try:
                 payload = dict(device)
                 payload.update({"name": name})
-                device_cls(**payload)
-                valid_devices[name] = device
+                valid_devices[name] = device_cls(**payload)
             except ValidationError as ve:
                 errors.setdefault(collection_name, {})[name] = str(ve)
             except Exception as ex:
@@ -148,15 +147,15 @@ class Area(slac_devices.BaseModel):
             values.get("validation_errors") or {}
         )
         collection_defs = [
-            ("magnets", Magnet),
-            ("screens", Screen),
-            ("wires", Wire),
-            ("bpms", BPM),
-            ("lblms", LBLM),
-            ("pmts", PMT),
+            ("magnets", Magnet, MagnetCollection),
+            ("screens", Screen, ScreenCollection),
+            ("wires", Wire, WireCollection),
+            ("bpms", BPM, BPMCollection),
+            ("lblms", LBLM, LBLMCollection),
+            ("pmts", PMT, PMTCollection),
         ]
 
-        for collection_name, device_cls in collection_defs:
+        for collection_name, device_cls, collection_cls in collection_defs:
             raw_devices = values.get(collection_name)
             valid_devices = cls._collect_valid_devices(
                 raw_devices,
@@ -165,7 +164,12 @@ class Area(slac_devices.BaseModel):
                 errors,
             )
             if raw_devices is not None:
-                values[collection_name] = valid_devices or None
+                if valid_devices:
+                    values[collection_name] = collection_cls.model_construct(
+                        devices=valid_devices
+                    )
+                else:
+                    values[collection_name] = None
 
         values["validation_errors"] = errors
         return values
@@ -187,6 +191,8 @@ class Area(slac_devices.BaseModel):
         mode="before",
     )
     def validate_magnets(cls, v: Dict[str, Any]):
+        if isinstance(v, MagnetCollection):
+            return v
         if not v:
             return None
         return MagnetCollection(magnets=v)
@@ -196,6 +202,8 @@ class Area(slac_devices.BaseModel):
         mode="before",
     )
     def validate_screens(cls, v: Dict[str, Any]):
+        if isinstance(v, ScreenCollection):
+            return v
         if not v:
             return None
         return ScreenCollection(screens=v)
@@ -205,6 +213,8 @@ class Area(slac_devices.BaseModel):
         mode="before",
     )
     def validate_wires(cls, v: Dict[str, Any]):
+        if isinstance(v, WireCollection):
+            return v
         if not v:
             return None
         return WireCollection(wires=v)
@@ -214,6 +224,8 @@ class Area(slac_devices.BaseModel):
         mode="before",
     )
     def validate_bpms(cls, v: Dict[str, Any]):
+        if isinstance(v, BPMCollection):
+            return v
         if not v:
             return None
         return BPMCollection(bpms=v)
@@ -223,6 +235,8 @@ class Area(slac_devices.BaseModel):
         mode="before",
     )
     def validate_lblms(cls, v: Dict[str, Any]):
+        if isinstance(v, LBLMCollection):
+            return v
         if not v:
             return None
         return LBLMCollection(lblms=v)
@@ -232,6 +246,8 @@ class Area(slac_devices.BaseModel):
         mode="before",
     )
     def validate_pmts(cls, v: Dict[str, Any]):
+        if isinstance(v, PMTCollection):
+            return v
         if not v:
             return None
         return PMTCollection(pmts=v)
