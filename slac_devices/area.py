@@ -123,7 +123,7 @@ class Area(slac_devices.BaseModel):
         collection_name: str,
         errors: Dict[str, Dict[str, str]],
     ) -> Dict[str, Any]:
-        """Keep valid device model objects and record failures by name."""
+        """Keep valid device payloads and record failures by name."""
         if not devices:
             return {}
         if not isinstance(devices, dict):
@@ -137,7 +137,9 @@ class Area(slac_devices.BaseModel):
             try:
                 payload = dict(device)
                 payload.update({"name": name})
-                valid_devices[name] = device_cls(**payload)
+                # Validate each device entry independently.
+                device_cls(**payload)
+                valid_devices[name] = device
             except ValidationError as ve:
                 errors.setdefault(collection_name, {})[name] = str(ve)
             except Exception as ex:
@@ -157,16 +159,16 @@ class Area(slac_devices.BaseModel):
             values.get("validation_errors") or {}
         )
         collection_defs = [
-            ("magnets", Magnet, MagnetCollection),
-            ("screens", Screen, ScreenCollection),
-            ("wires", Wire, WireCollection),
-            ("bpms", BPM, BPMCollection),
-            ("lblms", LBLM, LBLMCollection),
-            ("pmts", PMT, PMTCollection),
-            ("tcavs", TCAV, TCAVCollection),
+            ("magnets", Magnet),
+            ("screens", Screen),
+            ("wires", Wire),
+            ("bpms", BPM),
+            ("lblms", LBLM),
+            ("pmts", PMT),
+            ("tcavs", TCAV),
         ]
 
-        for collection_name, device_cls, collection_cls in collection_defs:
+        for collection_name, device_cls in collection_defs:
             raw_devices = values.get(collection_name)
             valid_devices = cls._collect_valid_devices(
                 raw_devices,
@@ -175,12 +177,7 @@ class Area(slac_devices.BaseModel):
                 errors,
             )
             if raw_devices is not None:
-                if valid_devices:
-                    values[collection_name] = collection_cls.model_construct(
-                        devices=valid_devices
-                    )
-                else:
-                    values[collection_name] = None
+                values[collection_name] = valid_devices or None
 
         values["validation_errors"] = errors
         return values
@@ -422,21 +419,21 @@ class Area(slac_devices.BaseModel):
         return bool(self.tcavs and tcav_name in self.tcavs)
 
     def __repr__(self) -> str:
-        mc = self.magnet_collection
-        sc = self.screen_collection
-        wc = self.wire_collection
-        bc = self.bpm_collection
-        lc = self.lblm_collection
-        pc = self.pmt_collection
-        tc = self.tcav_collection
+        magnets = self.magnets or {}
+        screens = self.screens or {}
+        wires = self.wires or {}
+        bpms = self.bpms or {}
+        lblms = self.lblms or {}
+        pmts = self.pmts or {}
+        tcavs = self.tcavs or {}
         counts = {
-            "magnets": len(mc.magnets) if mc else 0,
-            "screens": len(sc.screens) if sc else 0,
-            "wires": len(wc.wires) if wc else 0,
-            "bpms": len(bc.bpms) if bc else 0,
-            "lblms": len(lc.lblms) if lc else 0,
-            "pmts": len(pc.pmts) if pc else 0,
-            "tcavs": len(tc.tcavs) if tc else 0,
+            "magnets": len(magnets),
+            "screens": len(screens),
+            "wires": len(wires),
+            "bpms": len(bpms),
+            "lblms": len(lblms),
+            "pmts": len(pmts),
+            "tcavs": len(tcavs),
         }
         device_summary = ", ".join(
             f"{k}={v}" for k, v in counts.items() if v > 0
