@@ -175,7 +175,7 @@ def create_beampath(beampath: str = None) -> Union[None, Beampath]:
         Beampath: A Beampath object containing all valid Area instances.
         None: If the beampath name is not found or if any area cannot be created.
     """
-    areas_to_create = slac_db.get_beampath_areas()
+    areas_to_create = slac_db.get_beampath_areas(beampath=beampath)
     try:
         for area in areas_to_create:
             created_area = create_area(area=area)
