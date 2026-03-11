@@ -136,6 +136,16 @@ class Beampath(slac_devices.BaseModel):
         return result
 
     @property
+    def tcavs(self) -> Dict[str, Any]:
+        """All TCAVs across all areas, keyed by device name."""
+        result = {}
+        if self.areas:
+            for area in self.areas.values():
+                if area.tcav_collection:
+                    result.update(area.tcav_collection.tcavs)
+        return result
+
+    @property
     def validation_errors(self) -> Dict[str, Dict[str, Dict[str, str]]]:
         """Validation failures grouped by area then device collection.
 
@@ -168,6 +178,7 @@ class Beampath(slac_devices.BaseModel):
             ("bpm_collection", "bpms"),
             ("lblm_collection", "lblms"),
             ("pmt_collection", "pmts"),
+            ("tcav_collection", "tcavs"),
         ]
         if self.areas:
             for area in self.areas.values():
@@ -189,6 +200,7 @@ class Beampath(slac_devices.BaseModel):
             "bpms": len(self.bpms),
             "lblms": len(self.lblms),
             "pmts": len(self.pmts),
+            "tcavs": len(self.tcavs),
         }
         device_summary = ", ".join(
             f"{k}={v}" for k, v in counts.items() if v > 0

@@ -29,6 +29,7 @@ from slac_devices.lblm import (
     LBLMCollection,
 )
 from slac_devices.pmt import PMT, PMTCollection
+from slac_devices.tcav import TCAV, TCAVCollection
 
 from pydantic import (
     SerializeAsAny,
@@ -104,6 +105,15 @@ class Area(slac_devices.BaseModel):
         alias="pmts",
         default=None,
     )
+    tcav_collection: Optional[
+        Union[
+            SerializeAsAny[TCAVCollection],
+            None,
+        ]
+    ] = Field(
+        alias="tcavs",
+        default=None,
+    )
     validation_errors: Dict[str, Dict[str, str]] = Field(default_factory=dict)
 
     @staticmethod
@@ -153,6 +163,7 @@ class Area(slac_devices.BaseModel):
             ("bpms", BPM, BPMCollection),
             ("lblms", LBLM, LBLMCollection),
             ("pmts", PMT, PMTCollection),
+            ("tcavs", TCAV, TCAVCollection),
         ]
 
         for collection_name, device_cls, collection_cls in collection_defs:
@@ -252,6 +263,17 @@ class Area(slac_devices.BaseModel):
             return None
         return PMTCollection(pmts=v)
 
+    @field_validator(
+        "tcav_collection",
+        mode="before",
+    )
+    def validate_tcavs(cls, v: Dict[str, Any]):
+        if isinstance(v, TCAVCollection):
+            return v
+        if not v:
+            return None
+        return TCAVCollection(tcavs=v)
+
     @property
     def magnets(
         self,
@@ -342,6 +364,21 @@ class Area(slac_devices.BaseModel):
             return self.pmt_collection.pmts
         return None
 
+    @property
+    def tcavs(
+        self,
+    ) -> Union[
+        Dict[str, TCAV],
+        None,
+    ]:
+        """
+        A Dict[str, TCAV] for this area, where the dict keys are tcav names
+        If no tcavs exist for this area, this property is None
+        """
+        if self.tcav_collection:
+            return self.tcav_collection.tcavs
+        return None
+
     def does_magnet_exist(
         self,
         magnet_name: str = None,
@@ -378,6 +415,12 @@ class Area(slac_devices.BaseModel):
     ) -> bool:
         return bool(self.pmts and pmt_name in self.pmts)
 
+    def does_tcav_exist(
+        self,
+        tcav_name: str = None,
+    ) -> bool:
+        return bool(self.tcavs and tcav_name in self.tcavs)
+
     def __repr__(self) -> str:
         mc = self.magnet_collection
         sc = self.screen_collection
@@ -385,6 +428,7 @@ class Area(slac_devices.BaseModel):
         bc = self.bpm_collection
         lc = self.lblm_collection
         pc = self.pmt_collection
+        tc = self.tcav_collection
         counts = {
             "magnets": len(mc.magnets) if mc else 0,
             "screens": len(sc.screens) if sc else 0,
@@ -392,6 +436,7 @@ class Area(slac_devices.BaseModel):
             "bpms": len(bc.bpms) if bc else 0,
             "lblms": len(lc.lblms) if lc else 0,
             "pmts": len(pc.pmts) if pc else 0,
+            "tcavs": len(tc.tcavs) if tc else 0,
         }
         device_summary = ", ".join(
             f"{k}={v}" for k, v in counts.items() if v > 0
