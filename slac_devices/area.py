@@ -30,7 +30,13 @@ from slac_devices.lblm import (
 )
 from slac_devices.pmt import PMT, PMTCollection
 
-from pydantic import SerializeAsAny, Field, field_validator
+from pydantic import (
+    SerializeAsAny,
+    Field,
+    ValidationError,
+    field_validator,
+    model_validator,
+)
 
 
 class Area(slac_devices.BaseModel):
@@ -98,6 +104,71 @@ class Area(slac_devices.BaseModel):
         alias="pmts",
         default=None,
     )
+    validation_errors: Dict[str, Dict[str, str]] = Field(default_factory=dict)
+
+    @staticmethod
+    def _collect_valid_devices(
+        devices: Any,
+        device_cls: Any,
+        collection_name: str,
+        errors: Dict[str, Dict[str, str]],
+    ) -> Dict[str, Any]:
+        """Keep valid devices and record validation failures by name."""
+        if not devices:
+            return {}
+        if not isinstance(devices, dict):
+            errors.setdefault(collection_name, {})["__collection__"] = (
+                f"Expected dict, got {type(devices).__name__}"
+            )
+            return {}
+
+        valid_devices = {}
+        for name, device in devices.items():
+            try:
+                payload = dict(device)
+                payload.update({"name": name})
+                device_cls(**payload)
+                valid_devices[name] = device
+            except ValidationError as ve:
+                errors.setdefault(collection_name, {})[name] = str(ve)
+            except Exception as ex:
+                errors.setdefault(collection_name, {})[name] = str(ex)
+        return valid_devices
+
+    @model_validator(mode="before")
+    def _tolerant_device_validation(cls, values: Any) -> Any:
+        """Filter invalid devices before collection construction.
+
+        Validation failures are recorded instead of failing Area creation.
+        """
+        if not isinstance(values, dict):
+            return values
+
+        errors: Dict[str, Dict[str, str]] = dict(
+            values.get("validation_errors") or {}
+        )
+        collection_defs = [
+            ("magnets", Magnet),
+            ("screens", Screen),
+            ("wires", Wire),
+            ("bpms", BPM),
+            ("lblms", LBLM),
+            ("pmts", PMT),
+        ]
+
+        for collection_name, device_cls in collection_defs:
+            raw_devices = values.get(collection_name)
+            valid_devices = cls._collect_valid_devices(
+                raw_devices,
+                device_cls,
+                collection_name,
+                errors,
+            )
+            if raw_devices is not None:
+                values[collection_name] = valid_devices or None
+
+        values["validation_errors"] = errors
+        return values
 
     def __init__(
         self,
@@ -178,9 +249,7 @@ class Area(slac_devices.BaseModel):
         """
         if self.magnet_collection:
             return self.magnet_collection.magnets
-        else:
-            print("Area does not contain magnets.")
-            return None
+        return None
 
     @property
     def screens(
@@ -195,9 +264,7 @@ class Area(slac_devices.BaseModel):
         """
         if self.screen_collection:
             return self.screen_collection.screens
-        else:
-            print("Area does not contain screens.")
-            return None
+        return None
 
     @property
     def wires(
@@ -212,9 +279,7 @@ class Area(slac_devices.BaseModel):
         """
         if self.wire_collection:
             return self.wire_collection.wires
-        else:
-            print("Area does not contain wires.")
-            return None
+        return None
 
     @property
     def bpms(
@@ -229,9 +294,7 @@ class Area(slac_devices.BaseModel):
         """
         if self.bpm_collection:
             return self.bpm_collection.bpms
-        else:
-            print("Area does not contain bpms.")
-            return None
+        return None
 
     @property
     def lblms(
@@ -246,9 +309,7 @@ class Area(slac_devices.BaseModel):
         """
         if self.lblm_collection:
             return self.lblm_collection.lblms
-        else:
-            print("Area does not contain lblms.")
-            return None
+        return None
 
     @property
     def pmts(
@@ -263,42 +324,62 @@ class Area(slac_devices.BaseModel):
         """
         if self.pmt_collection:
             return self.pmt_collection.pmts
-        else:
-            print("Area does not contain pmts.")
-            return None
+        return None
 
     def does_magnet_exist(
         self,
         magnet_name: str = None,
     ) -> bool:
-        return magnet_name in self.magnets
+        return bool(self.magnets and magnet_name in self.magnets)
 
     def does_screen_exist(
         self,
         screen_name: str = None,
     ) -> bool:
-        return screen_name in self.screens
+        return bool(self.screens and screen_name in self.screens)
 
     def does_wire_exist(
         self,
         wire_name: str = None,
     ) -> bool:
-        return wire_name in self.wires
+        return bool(self.wires and wire_name in self.wires)
 
     def does_bpm_exist(
         self,
         bpm_name: str = None,
     ) -> bool:
-        return bpm_name in self.bpms
+        return bool(self.bpms and bpm_name in self.bpms)
 
     def does_lblm_exist(
         self,
         lblm_name: str = None,
     ) -> bool:
-        return lblm_name in self.lblms
+        return bool(self.lblms and lblm_name in self.lblms)
 
     def does_pmt_exist(
         self,
         pmt_name: str = None,
     ) -> bool:
-        return pmt_name in self.pmts
+        return bool(self.pmts and pmt_name in self.pmts)
+
+    def __repr__(self) -> str:
+        mc = self.magnet_collection
+        sc = self.screen_collection
+        wc = self.wire_collection
+        bc = self.bpm_collection
+        lc = self.lblm_collection
+        pc = self.pmt_collection
+        counts = {
+            "magnets": len(mc.magnets) if mc else 0,
+            "screens": len(sc.screens) if sc else 0,
+            "wires": len(wc.wires) if wc else 0,
+            "bpms": len(bc.bpms) if bc else 0,
+            "lblms": len(lc.lblms) if lc else 0,
+            "pmts": len(pc.pmts) if pc else 0,
+        }
+        device_summary = ", ".join(
+            f"{k}={v}" for k, v in counts.items() if v > 0
+        )
+        if device_summary:
+            return f"Area(name={self.name!r}, {device_summary})"
+        return f"Area(name={self.name!r})"
