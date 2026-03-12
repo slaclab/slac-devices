@@ -12,7 +12,9 @@ from slac_devices.device import (
     ControlInformation,
     Metadata,
     PVSet,
+    DeviceCollection,
 )
+from pydantic import Field
 from epics import PV
 
 
@@ -244,3 +246,14 @@ class TCAV(Device):
     def rf_freq(self):
         """The Rf frequency of the TCAV in MHz"""
         return self.metadata.rf_freq
+
+
+class TCAVCollection(DeviceCollection):
+    devices: Dict[str, SerializeAsAny[TCAV]] = Field(alias="tcavs")
+
+    def __init__(self, *args, **kwargs):
+        super(TCAVCollection, self).__init__(*args, **kwargs)
+
+    @property
+    def tcavs(self) -> Dict[str, SerializeAsAny[TCAV]]:
+        return self.devices
