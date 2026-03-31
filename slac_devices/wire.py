@@ -99,7 +99,7 @@ class WireMetadata(Metadata):
     detectors: List[str]
     bpms_before_wire: Optional[List[str]] = None
     bpms_after_wire: Optional[List[str]] = None
-    type: str
+    wire_type: str
 
 class Wire(Device):
     controls_information: SerializeAsAny[WireControlInformation]
@@ -108,11 +108,8 @@ class Wire(Device):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
 
-    def __repr__(self) -> str:
-        """
-        Return a string representation showing name, area,
-        and active planes with ranges.
-        """
+    def _repr_string(self) -> str:
+        """Build the string representation including active planes and ranges."""
         planes = []
         try:
             if self.use_x_wire:
@@ -126,9 +123,15 @@ class Wire(Device):
             pass
 
         planes_str = ", ".join(planes) if planes else "no planes configured"
-        return f"Wire(name={self.name!r}, "\
-               f" area={self.area!r}, "\
-               f"planes={planes_str})"
+        return (
+            f"Wire(name={self.name!r}, "
+            f"area={self.area!r}, "
+            f"planes={planes_str})"
+        )
+
+    def __repr__(self) -> str:
+        """Return the display string for this wire."""
+        return self._repr_string()
 
     def active_profiles(self) -> List[str]:
         """Return list of currently enabled planes.
