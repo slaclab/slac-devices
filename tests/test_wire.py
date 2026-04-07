@@ -57,6 +57,7 @@ class WireTest(TestCase):
                 "type": "PROF",
                 "wire_type": "C",
                 "detectors": ["DET1"],
+                "default_detector": "DET1",
             },
         }
 
