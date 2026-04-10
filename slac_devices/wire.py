@@ -188,7 +188,7 @@ class Wire(Device):
     @property
     def initialize_status(self):
         """Checks if the wire scanner device has been initialized."""
-        return self.contr
+        return self.controls_information.PVs.initialize_status.get()
 
     def initialize(self) -> None:
         self.controls_information.PVs.initialize.put(value=1)
