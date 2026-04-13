@@ -27,6 +27,7 @@ class WireTest(TestCase):
                     "motor": "WSBP2:MOTR",
                     "motor_rbv": "WSBP2:MOTR.RBV",
                     "mps_speed": "WSBP2:MPS_SPEED",
+                    "on_status": "WSBP2:MOTR_ON_STS",
                     "retract": "WSBP2:MOTR_RETRACT",
                     "scan_pulses": "WSBP2:SCANPULSES",
                     "speed": "WSBP2:MOTR.VELO",
@@ -76,6 +77,7 @@ class WireTest(TestCase):
             "MOTR_INIT_STS": None,
             "MOTR_RETRACT": None,
             "MOTR": None,
+            "MOTR_ON_STS": None,
             "STARTSCAN": None,
             "USEXWIRE": None,
             "USEYWIRE": None,
@@ -117,6 +119,7 @@ class WireTest(TestCase):
             "MOTR_INIT_STS": self.wire.initialize_status,
             "MOTR": self.wire.motor,
             "MOTR.RBV": self.wire.motor_rbv,
+            "MOTR_ON_STS": self.wire.on_status,
             "MOTR_RETRACT": self.wire.retract,
             "SCANPULSES": self.wire.scan_pulses,
             "MOTR.VELO": self.wire.speed,
@@ -149,8 +152,10 @@ class WireTest(TestCase):
     def test_properties_exist(self) -> None:
         """Test that all the properties we expect exist"""
         # Assert that wire has all auto-generated private attributes
-        for handle, _ in self.wire.controls_information.PVs:
-            if handle not in ["position"]:
+        for handle, pv in self.wire.controls_information.PVs:
+            # Some optional PV-backed properties (e.g., scan_status) are
+            # intentionally unavailable when the backing PV is not configured.
+            if handle not in ["position"] and pv is not None:
                 self.assertTrue(
                     hasattr(self.wire, handle),
                     msg=f"expected wire to have attribute {handle}",
@@ -224,6 +229,7 @@ class WireTest(TestCase):
             "enabled",
             "beam_rate",
             "homed",
+            "on_status",
             "initialize_status",
             "motor",
             "motor_rbv",

@@ -62,8 +62,10 @@ class WirePVSet(PVSet):
     motor: PV
     motor_rbv: PV
     mps_speed: PV
+    on_status: PV
     retract: Optional[PV] = None
     scan_pulses: PV
+    scan_status: Optional[PV] = None
     speed: PV
     speed_max: PV
     speed_min: PV
@@ -159,16 +161,11 @@ class Wire(Device):
         self.controls_information.PVs.abort_scan.put(value=1)
 
     @property
-    def enabled(self):
-        """Returns the enabled state of the wire sacnner"""
-        return self.controls_information.PVs.enabled.get()
-
-    @property
     def beam_rate(self):
         """Returns current beam rate"""
         # Some wires do not have dedicated beam rate PVs.
         # See CATER 180392 for more details
-        nc_areas = ["LI20", "LI24", "LI28", "LTUH", "DL1", "BC1", "BC2", "LTU"]
+        nc_areas = ["LI20", "LI24", "LI28", "L3", "LTUH", "DL1", "BC1", "BC2", "LTU"]
         if self.area in nc_areas and self.controls_information.PVs.beam_rate is None:
             nc_beam_rate = PV("EVNT:SYS0:1:LCLSBEAMRATE")
             return nc_beam_rate.get()
@@ -177,6 +174,11 @@ class Wire(Device):
             return diag0_beam_rate.get()
         else:
             return self.controls_information.PVs.beam_rate.get()
+
+    @property
+    def enabled(self):
+        """Returns the enabled state of the wire sacnner"""
+        return self.controls_information.PVs.enabled.get()
 
     @property
     def homed(self):
@@ -220,6 +222,11 @@ class Wire(Device):
         """
         return self.controls_information.PVs.mps_speed.get() * 1000
 
+    @property
+    def on_status(self):
+        """Returns the on status of the wire scanner."""
+        return self.controls_information.PVs.on_status.get()
+
     def position_buffer(self, buffer):
         return buffer.get_data_buffer(
             f"{self.controls_information.control_name}:POSN"
@@ -238,6 +245,14 @@ class Wire(Device):
     def scan_pulses(self, val: int) -> None:
         validate_integer(val)
         self.controls_information.PVs.scan_pulses.put(value=val)
+
+    @property
+    def scan_status(self):
+        """Returns the current scan status."""
+        if self.controls_information.PVs.scan_status is not None:
+            return self.controls_information.PVs.scan_status.get()
+        else:
+            raise AttributeError("scan_status PV is not defined for this device")
 
     def set_range(self, plane: str, val: list) -> None:
         self._set_plane_range(plane, val)
