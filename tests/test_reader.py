@@ -1,6 +1,7 @@
 import slac_db
-from slac_devices.reader import create_magnet
+from slac_devices.reader import create_magnet, create_area
 from slac_devices.magnet import Magnet, MagnetCollection
+from slac_devices.area import Area
 import unittest
 from unittest.mock import patch, MagicMock
 import os
@@ -60,3 +61,69 @@ class TestMagnetReader(unittest.TestCase):
         )
         self.assertNotIsInstance(result, MagnetCollection)
         self.assertIsInstance(result, Magnet)
+
+
+class TestAreaReader(unittest.TestCase):
+    def test_create_area_keeps_valid_devices_when_one_is_invalid(self):
+        valid_bpm = {
+            "controls_information": {
+                "PVs": {
+                    "tmit": "BPMS:DIAG0:190:TMIT",
+                    "x": "BPMS:DIAG0:190:X",
+                    "y": "BPMS:DIAG0:190:Y",
+                },
+                "control_name": "BPMS:DIAG0:190",
+            },
+            "metadata": {
+                "area": "DIAG0",
+                "beam_path": ["SC_DIAG0"],
+                "sum_l_meters": 46.232,
+                "type": "BPM",
+            },
+        }
+        invalid_bpm = {
+            "controls_information": {
+                "PVs": {
+                    "tmit": "BPMS:DIAG0:999:TMIT",
+                    "x": "BPMS:DIAG0:999:X",
+                    "y": "BPMS:DIAG0:999:Y",
+                },
+                "control_name": "BPMS:DIAG0:999",
+            }
+        }
+
+        with patch("slac_devices.reader.slac_db.get_device") as mock_get_device:
+            mock_get_device.return_value = {
+                "bpms": {
+                    "GOOD": valid_bpm,
+                    "BAD": invalid_bpm,
+                }
+            }
+            result = create_area(area="DIAG0")
+
+        self.assertIsInstance(result, Area)
+        self.assertIn("GOOD", result.bpms)
+        self.assertNotIn("BAD", result.bpms)
+
+    def test_create_area_returns_area_when_all_devices_invalid(self):
+        invalid_bpm = {
+            "controls_information": {
+                "PVs": {
+                    "tmit": "BPMS:DIAG0:999:TMIT",
+                    "x": "BPMS:DIAG0:999:X",
+                    "y": "BPMS:DIAG0:999:Y",
+                },
+                "control_name": "BPMS:DIAG0:999",
+            }
+        }
+
+        with patch("slac_devices.reader.slac_db.get_device") as mock_get_device:
+            mock_get_device.return_value = {
+                "bpms": {
+                    "BAD": invalid_bpm,
+                }
+            }
+            result = create_area(area="DIAG0")
+
+        self.assertIsInstance(result, Area)
+        self.assertIsNone(result.bpms)

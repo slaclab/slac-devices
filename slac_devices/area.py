@@ -31,6 +31,41 @@ from slac_devices.lblm import (
 from slac_devices.pmt import PMT, PMTCollection
 
 from pydantic import SerializeAsAny, Field, field_validator
+from pydantic import ValidationError
+
+
+def _prune_invalid_devices(
+    area_name: str,
+    device_type: str,
+    device_data: Dict[str, Any],
+    device_class,
+) -> Union[Dict[str, Any], None]:
+    if not device_data:
+        return None
+
+    valid_devices = {}
+    for name, payload in device_data.items():
+        if not isinstance(payload, dict):
+            print(
+                f"Skipping {device_type} {name} in {area_name}: "
+                + "device definition is not a dictionary."
+            )
+            continue
+
+        payload_copy = dict(payload)
+        payload_copy.pop("name", None)
+        try:
+            device_class(name=name, **payload_copy)
+        except (ValidationError, TypeError) as field_error:
+            print(
+                f"Skipping invalid {device_type} {name} in {area_name}: {field_error}"
+            )
+            continue
+        valid_devices[name] = payload_copy
+
+    if not valid_devices:
+        return None
+    return valid_devices
 
 
 class Area(slac_devices.BaseModel):
@@ -116,54 +151,90 @@ class Area(slac_devices.BaseModel):
         mode="before",
     )
     def validate_magnets(cls, v: Dict[str, Any]):
-        if not v:
+        valid_magnets = _prune_invalid_devices(
+            area_name="<unknown>",
+            device_type="magnets",
+            device_data=v,
+            device_class=Magnet,
+        )
+        if not valid_magnets:
             return None
-        return MagnetCollection(magnets=v)
+        return MagnetCollection(magnets=valid_magnets)
 
     @field_validator(
         "screen_collection",
         mode="before",
     )
     def validate_screens(cls, v: Dict[str, Any]):
-        if not v:
+        valid_screens = _prune_invalid_devices(
+            area_name="<unknown>",
+            device_type="screens",
+            device_data=v,
+            device_class=Screen,
+        )
+        if not valid_screens:
             return None
-        return ScreenCollection(screens=v)
+        return ScreenCollection(screens=valid_screens)
 
     @field_validator(
         "wire_collection",
         mode="before",
     )
     def validate_wires(cls, v: Dict[str, Any]):
-        if not v:
+        valid_wires = _prune_invalid_devices(
+            area_name="<unknown>",
+            device_type="wires",
+            device_data=v,
+            device_class=Wire,
+        )
+        if not valid_wires:
             return None
-        return WireCollection(wires=v)
+        return WireCollection(wires=valid_wires)
 
     @field_validator(
         "bpm_collection",
         mode="before",
     )
     def validate_bpms(cls, v: Dict[str, Any]):
-        if not v:
+        valid_bpms = _prune_invalid_devices(
+            area_name="<unknown>",
+            device_type="bpms",
+            device_data=v,
+            device_class=BPM,
+        )
+        if not valid_bpms:
             return None
-        return BPMCollection(bpms=v)
+        return BPMCollection(bpms=valid_bpms)
 
     @field_validator(
         "lblm_collection",
         mode="before",
     )
     def validate_lblms(cls, v: Dict[str, Any]):
-        if not v:
+        valid_lblms = _prune_invalid_devices(
+            area_name="<unknown>",
+            device_type="lblms",
+            device_data=v,
+            device_class=LBLM,
+        )
+        if not valid_lblms:
             return None
-        return LBLMCollection(lblms=v)
+        return LBLMCollection(lblms=valid_lblms)
 
     @field_validator(
         "pmt_collection",
         mode="before",
     )
     def validate_pmts(cls, v: Dict[str, Any]):
-        if not v:
+        valid_pmts = _prune_invalid_devices(
+            area_name="<unknown>",
+            device_type="pmts",
+            device_data=v,
+            device_class=PMT,
+        )
+        if not valid_pmts:
             return None
-        return PMTCollection(pmts=v)
+        return PMTCollection(pmts=valid_pmts)
 
     @property
     def magnets(
