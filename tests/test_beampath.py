@@ -149,8 +149,8 @@ class TestBeampathFindDevice(unittest.TestCase):
         self.assertEqual(result[1], "screens")
 
     def test_find_device_no_configured_areas(self):
-        """Test find_device with unconfigured beampath."""
-        bp = Beampath.model_construct(name="UNCONFIGURED", areas=None)
+        """Test find_device returns None gracefully when areas is None."""
+        bp = Beampath(name="UNCONFIGURED")  # areas defaults to None
         result = bp.find_device("SOMETHING")
         self.assertIsNone(result)
 
