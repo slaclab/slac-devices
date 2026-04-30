@@ -123,6 +123,9 @@ class MagnetTest(TestCase):
         self.assertEqual(self.magnet.name, "SOL1B")
 
     def test_ctrl_options_are_lazy_loaded(self) -> None:
+        # mock_ctrl_options patches epics.PV.get_ctrlvars; accessing
+        # ctrl_options for the first time should trigger exactly one call
+        # to get_ctrlvars(timeout=1).
         self.mock_ctrl_options.assert_not_called()
         _ = self.magnet.ctrl_options
         self.mock_ctrl_options.assert_called_once_with(timeout=1)
