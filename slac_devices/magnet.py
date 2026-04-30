@@ -47,13 +47,21 @@ class MagnetControlInformation(ControlInformation):
     def _load_ctrl_options(self):
         if self._ctrl_options_loaded:
             return
-        self._ctrl_options_loaded = True
 
         options = self.PVs.ctrl.get_ctrlvars(timeout=1)
-        if options and "enum_strs" in options:
-            self._ctrl_options.update(
-                {option: i for i, option in enumerate(options["enum_strs"])}
+        if options is not None:
+            if "enum_strs" in options:
+                self._ctrl_options.update(
+                    {option: i for i, option in enumerate(options["enum_strs"])}
+                )
+            self._ctrl_options_loaded = True
+        else:
+            pvname = self.PVs.ctrl.pvname
+            msg = (
+                "Timed out waiting for control options from PV '%s'. The PV may be disconnected."
+                % pvname
             )
+            raise TimeoutError(msg)
 
     @property
     def ctrl_options(self):
