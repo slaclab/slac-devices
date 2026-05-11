@@ -5,6 +5,7 @@ from pydantic import (
     PositiveFloat,
     NonNegativeFloat,
     SerializeAsAny,
+    PrivateAttr,
 )
 from typing import (
     Dict,
@@ -38,19 +39,33 @@ class MagnetPVSet(PVSet):
 class MagnetControlInformation(ControlInformation):
     PVs: SerializeAsAny[MagnetPVSet]
     _ctrl_options: SerializeAsAny[Optional[Dict[str, int]]] = dict()
+    _ctrl_options_loaded: bool = PrivateAttr(default=False)
 
     def __init__(self, *args, **kwargs):
         super(MagnetControlInformation, self).__init__(*args, **kwargs)
-        # Get possible options for magnet ctrl PV, empty dict by default.
+
+    def _load_ctrl_options(self):
+        if self._ctrl_options_loaded:
+            return
+
         options = self.PVs.ctrl.get_ctrlvars(timeout=1)
-        if options:
-            [
-                self._ctrl_options.update({option: i})
-                for i, option in enumerate(options["enum_strs"])
-            ]
+        if options is not None:
+            if "enum_strs" in options:
+                self._ctrl_options.update(
+                    {option: i for i, option in enumerate(options["enum_strs"])}
+                )
+            self._ctrl_options_loaded = True
+        else:
+            pvname = self.PVs.ctrl.pvname
+            msg = (
+                "Timed out waiting for control options from PV '%s'. The PV may be disconnected."
+                % pvname
+            )
+            raise TimeoutError(msg)
 
     @property
     def ctrl_options(self):
+        self._load_ctrl_options()
         return self._ctrl_options
 
 
