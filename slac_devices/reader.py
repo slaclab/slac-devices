@@ -1,6 +1,4 @@
-import os
-import yaml
-from typing import Union, Optional, Any, Dict
+from typing import Union, Optional
 from pydantic import ValidationError
 import slac_db
 from slac_devices.screen import Screen, ScreenCollection
@@ -113,7 +111,9 @@ def create_bpm(area: str = None, name: str = None) -> Union[None, BPM, BPMCollec
         return BPMCollection(**device_data)
 
 
-def create_tcav(area: str = None, name: str = None) -> Union[None, TCAV, TCAVCollection]:
+def create_tcav(
+    area: str = None, name: str = None
+) -> Union[None, TCAV, TCAVCollection]:
     device_data = slac_db.get_device(area=area, device_type="tcavs", name=name)
     if not device_data:
         return None
@@ -144,7 +144,9 @@ def create_pmt(area: str = None, name: str = None) -> Union[None, PMT]:
         return PMTCollection(**device_data)
 
 
-def create_area(area: str = None) -> Union[None, Area]:
+def create_area(
+    area: str = None, device_types: Optional[set] = None
+) -> Union[None, Area]:
     """
     Constructs an Area object from YAML device configuration data.
 
@@ -156,6 +158,8 @@ def create_area(area: str = None) -> Union[None, Area]:
     Parameters:
         area (str): The name of the area to load. Must match a valid YAML file
                     containing device definitions.
+        device_types (set, optional): Device types to include (e.g. {"bpms", "magnets"}).
+                    If None, all supported types are included.
 
     Returns:
         Area: An Area object with all valid devices instantiated.
@@ -165,12 +169,14 @@ def create_area(area: str = None) -> Union[None, Area]:
     if not yaml_data:
         return None
 
+    allowed = device_types if device_types is not None else _AREA_SUPPORTED_DEVICE_TYPES
+
     filtered_yaml_data = {}
     for device_type, device_payload in yaml_data.items():
+        if device_type not in allowed:
+            continue
         if device_type not in _AREA_SUPPORTED_DEVICE_TYPES:
-            print(
-                f"Skipping unsupported device type {device_type} in area {area}."
-            )
+            print(f"Skipping unsupported device type {device_type} in area {area}.")
             continue
         filtered_yaml_data[device_type] = device_payload
 
@@ -180,7 +186,10 @@ def create_area(area: str = None) -> Union[None, Area]:
         print("Error trying to create area", area, " : ", field_error)
         return None
 
-def create_beampath(beampath: str = None) -> Union[None, Beampath]:
+
+def create_beampath(
+    beampath: str = None, device_types: Optional[set] = None
+) -> Union[None, Beampath]:
     """
     Constructs a Beampath object from a YAML configuration file.
 
@@ -193,6 +202,8 @@ def create_beampath(beampath: str = None) -> Union[None, Beampath]:
     Parameters:
         beampath (str): The name of the beampath to load. Must exist as a key
                         in the beampaths.yaml file.
+        device_types (set, optional): Device types to include (e.g. {"bpms"}).
+                    If None, all supported types are included.
 
     Returns:
         Beampath: A Beampath object containing all valid Area instances.
@@ -202,7 +213,7 @@ def create_beampath(beampath: str = None) -> Union[None, Beampath]:
     areas = {}
     try:
         for area in areas_to_create:
-            created_area = create_area(area=area)
+            created_area = create_area(area=area, device_types=device_types)
             if created_area:
                 areas[area] = created_area
         return Beampath(name=beampath, **{"areas": areas})
