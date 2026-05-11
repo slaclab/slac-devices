@@ -556,8 +556,9 @@ class WireCollection(BaseModel):
     @field_validator("wires", mode="before")
     def validate_wires(cls, v) -> Dict[str, Wire]:
         for name, wire in v.items():
+            if isinstance(wire, Wire):
+                continue
             wire = dict(wire)
-            # Set name field for wire
             wire.update({"name": name})
             v.update({name: wire})
         return v

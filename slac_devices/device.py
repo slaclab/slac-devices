@@ -252,6 +252,8 @@ class DeviceCollection(slac_devices.BaseModel):
         and then use that dictionary to create each Device.
         """
         for name, device in v.items():
+            if isinstance(device, Device):
+                continue
             device = dict(device)
             device.update({"name": name})
             v.update({name: device})

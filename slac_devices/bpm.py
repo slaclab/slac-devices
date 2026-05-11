@@ -88,8 +88,9 @@ class BPMCollection(BaseModel):
     @field_validator("bpms", mode="before")
     def validate_bpms(cls, v) -> Dict[str, BPM]:
         for name, bpm in v.items():
+            if isinstance(bpm, BPM):
+                continue
             bpm = dict(bpm)
-            # Set name field for BPM
             bpm.update({"name": name})
             v.update({name: bpm})
         return v

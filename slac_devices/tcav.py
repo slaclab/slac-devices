@@ -254,6 +254,8 @@ class TCAVCollection(BaseModel):
     @field_validator("tcavs", mode="before")
     def validate_tcavs(cls, v) -> Dict[str, TCAV]:
         for name, tcav in v.items():
+            if isinstance(tcav, TCAV):
+                continue
             tcav = dict(tcav)
             tcav.update({"name": name})
             v.update({name: tcav})

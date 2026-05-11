@@ -66,8 +66,9 @@ class PMTCollection(BaseModel):
     @field_validator("pmts", mode="before")
     def validate_pmts(cls, v) -> Dict[str, PMT]:
         for name, pmt in v.items():
+            if isinstance(pmt, PMT):
+                continue
             pmt = dict(pmt)
-            # Set name field for PMT
             pmt.update({"name": name})
             v.update({name: pmt})
         return v

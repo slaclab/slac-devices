@@ -131,8 +131,9 @@ class LBLMCollection(BaseModel):
     @field_validator("lblms", mode="before")
     def validate_lblms(cls, v) -> Dict[str, LBLM]:
         for name, lblm in v.items():
+            if isinstance(lblm, LBLM):
+                continue
             lblm = dict(lblm)
-            # Set name field for LBLM
             lblm.update({"name": name})
             v.update({name: lblm})
         return v
