@@ -49,10 +49,12 @@ class PVSet(slac_devices.BaseModel):
         frozen=True,
     )
 
-    @field_validator("*", mode="before")
-    def validate_pv_fields(cls, v: str) -> LazyPV:
+    @field_validator("*", mode="wrap")
+    def validate_pv_fields(cls, v, handler) -> LazyPV:
         if v is None:
             return None
+        if isinstance(v, LazyPV):
+            return v
         return LazyPV(v)
 
     @field_serializer("*", when_used="unless-none")
