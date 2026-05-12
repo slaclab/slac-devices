@@ -1,4 +1,3 @@
-
 from pydantic import (
     BaseModel,
     SerializeAsAny,
@@ -97,11 +96,15 @@ class WireControlInformation(ControlInformation):
         super(WireControlInformation, self).__init__(*args, **kwargs)
 
 
+class TMITLossBPMs(BaseModel):
+    upstream: List[str]
+    downstream: List[str]
+
+
 class WireMetadata(Metadata):
     detectors: List[str]
     default_detector: str
-    bpms_before_wire: Optional[List[str]] = None
-    bpms_after_wire: Optional[List[str]] = None
+    tmitloss: Optional[TMITLossBPMs] = None
     type: str
     wire_type: str
 
@@ -128,11 +131,7 @@ class Wire(Device):
             pass
 
         planes_str = ", ".join(planes) if planes else "no planes configured"
-        return (
-            f"Wire(name={self.name!r}, "
-            f"area={self.area!r}, "
-            f"planes={planes_str})"
-        )
+        return f"Wire(name={self.name!r}, area={self.area!r}, planes={planes_str})"
 
     def __repr__(self) -> str:
         """Return the display string for this wire."""
@@ -228,9 +227,7 @@ class Wire(Device):
         return self.controls_information.PVs.on_status.get()
 
     def position_buffer(self, buffer):
-        return buffer.get_data_buffer(
-            f"{self.controls_information.control_name}:POSN"
-            )
+        return buffer.get_data_buffer(f"{self.controls_information.control_name}:POSN")
 
     def retract(self):
         """Retracts the wire scanner"""
@@ -300,7 +297,7 @@ class Wire(Device):
     def torque_enable(self):
         """Returns the state of the motor torque enable."""
         return self.controls_information.PVs.torque_enable.get()
-    
+
     @torque_enable.setter
     def torque_enable(self, val: bool) -> None:
         validate_boolean(val)
@@ -456,10 +453,7 @@ class Wire(Device):
             self.validate_range_speed(plane, inner, outer)
         except ValueError as exc:
             warnings.warn(
-                (
-                    f"{self.name} {plane.upper()} range configuration is invalid: "
-                    f"{exc}"
-                ),
+                (f"{self.name} {plane.upper()} range configuration is invalid: {exc}"),
                 UserWarning,
                 stacklevel=2,
             )
@@ -485,12 +479,8 @@ class Wire(Device):
         """Set both range endpoints before running configuration validation."""
         plane = validate_plane(plane)
         validate_range(val)
-        getattr(self.controls_information.PVs, f"{plane}_wire_inner").put(
-            value=val[0]
-        )
-        getattr(self.controls_information.PVs, f"{plane}_wire_outer").put(
-            value=val[1]
-        )
+        getattr(self.controls_information.PVs, f"{plane}_wire_inner").put(value=val[0])
+        getattr(self.controls_information.PVs, f"{plane}_wire_outer").put(value=val[1])
         self._warn_invalid_range_configuration(plane, val[0], val[1])
 
     def calculate_required_speed(self, plane: str, inner: int, outer: int) -> float:
