@@ -4,6 +4,44 @@ from typing import List, Union, Callable, Dict, Optional
 from epics import PV
 
 
+class LazyPV:
+    """Wraps an EPICS PV name and defers connection until first use."""
+
+    __slots__ = ("_pvname", "_pv")
+
+    def __init__(self, pvname: str):
+        object.__setattr__(self, "_pvname", pvname)
+        object.__setattr__(self, "_pv", None)
+
+    @property
+    def pvname(self) -> str:
+        return self._pvname
+
+    def _ensure_connected(self) -> PV:
+        if self._pv is None:
+            object.__setattr__(self, "_pv", PV(self._pvname))
+        return self._pv
+
+    def get(self, *args, **kwargs):
+        return self._ensure_connected().get(*args, **kwargs)
+
+    def put(self, *args, **kwargs):
+        return self._ensure_connected().put(*args, **kwargs)
+
+    def get_ctrlvars(self, *args, **kwargs):
+        return self._ensure_connected().get_ctrlvars(*args, **kwargs)
+
+    def add_callback(self, *args, **kwargs):
+        return self._ensure_connected().add_callback(*args, **kwargs)
+
+    def remove_callback(self, *args, **kwargs):
+        return self._ensure_connected().remove_callback(*args, **kwargs)
+
+    def __repr__(self):
+        connected = self._pv is not None
+        return f"LazyPV({self._pvname!r}, connected={connected})"
+
+
 class PVSet(slac_devices.BaseModel):
     model_config = ConfigDict(
         arbitrary_types_allowed=True,
@@ -12,13 +50,13 @@ class PVSet(slac_devices.BaseModel):
     )
 
     @field_validator("*", mode="before")
-    def validate_pv_fields(cls, v: str) -> PV:
+    def validate_pv_fields(cls, v: str) -> LazyPV:
         if v is None:
             return None
-        return PV(v)
+        return LazyPV(v)
 
     @field_serializer("*", when_used="unless-none")
-    def serialize_pv_fields(self, v: PV, _info) -> str:
+    def serialize_pv_fields(self, v: LazyPV, _info) -> str:
         return v.pvname
 
 
