@@ -17,7 +17,7 @@ class LazyPV:
 
     def _ensure_connected(self) -> PV:
         if self._pv is None:
-            object.__setattr__(self, "_pv", PV(self._pvname))
+            self._pv = PV(self._pvname)
         return self._pv
 
     def get(self, *args, **kwargs):
