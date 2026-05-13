@@ -58,7 +58,10 @@ class BPM(Device):
 
     def x_buffer(self, buffer):
         """Retrieve TMIT signal data from timing buffer"""
-        return buffer.get_buffer_data(self.controls_information.PVs.x)
+        data = buffer.get_data_buffer(f"{self.controls_information.control_name}:X")
+        if data is None:
+            raise BufferError("No data in buffer or PV not found")
+        return data
 
     @property
     def y(self):
@@ -67,7 +70,10 @@ class BPM(Device):
 
     def y_buffer(self, buffer):
         """Retrieve TMIT signal data from timing buffer"""
-        return buffer.get_buffer_data(self.controls_information.PVs.y)
+        data = buffer.get_data_buffer(f"{self.controls_information.control_name}:Y")
+        if data is None:
+            raise BufferError("No data in buffer or PV not found")
+        return data
 
     @property
     def tmit(self):
@@ -94,6 +100,39 @@ class BPMCollection(BaseModel):
             bpm.update({"name": name})
             v.update({name: bpm})
         return v
+
+    def get_buffer_data(
+        self, buffer, suffix: str = "TMIT"
+    ) -> Dict[str, Optional[list]]:
+        """Retrieve buffer data for all BPMs in the collection.
+
+        Args:
+            buffer: An edef EventDefinition or BSABuffer object.
+            suffix: PV suffix to read (e.g. "TMIT", "X", "Y").
+
+        Returns:
+            Dict mapping BPM name to data array, or None for unreachable BPMs.
+        """
+        pv_names = [
+            f"{bpm.controls_information.control_name}:{suffix}"
+            for bpm in self.bpms.values()
+        ]
+        try:
+            buff_data = buffer.get_buffer(pv_names)
+            return {
+                name: buff_data.get(f"{bpm.controls_information.control_name}:{suffix}")
+                for name, bpm in self.bpms.items()
+            }
+        except (TypeError, Exception):
+            results = {}
+            for name, bpm in self.bpms.items():
+                try:
+                    results[name] = buffer.get_data_buffer(
+                        f"{bpm.controls_information.control_name}:{suffix}"
+                    )
+                except (TypeError, BufferError):
+                    results[name] = None
+            return results
 
     def _make_bpm_names_list_from_args(
         self, args: Union[str, List[str], None]
