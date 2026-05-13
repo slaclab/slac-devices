@@ -113,26 +113,17 @@ class BPMCollection(BaseModel):
         Returns:
             Dict mapping BPM name to data array, or None for unreachable BPMs.
         """
-        pv_names = [
-            f"{bpm.controls_information.control_name}:{suffix}"
-            for bpm in self.bpms.values()
-        ]
-        try:
-            buff_data = buffer.get_buffer(pv_names)
-            return {
-                name: buff_data.get(f"{bpm.controls_information.control_name}:{suffix}")
-                for name, bpm in self.bpms.items()
-            }
-        except (TypeError, Exception):
-            results = {}
+
+        def _yield_buffer_data():
             for name, bpm in self.bpms.items():
+                address = f"{bpm.controls_information.control_name}:{suffix}"
                 try:
-                    results[name] = buffer.get_data_buffer(
-                        f"{bpm.controls_information.control_name}:{suffix}"
-                    )
+                    data = buffer.get_data_buffer(address)
                 except (TypeError, BufferError):
-                    results[name] = None
-            return results
+                    data = None
+                yield name, data
+
+        return dict(_yield_buffer_data())
 
     def _make_bpm_names_list_from_args(
         self, args: Union[str, List[str], None]
