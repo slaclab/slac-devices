@@ -47,9 +47,9 @@ class TCAVControlInformation(ControlInformation):
             TimeoutError: If any PV fails to return its control variables.
         """
         _ = __context  # avoid linter warning for unused variable
-        # self.set_mode_config_option()
-        # self.set_amplitude_feedback_options()
-        # self.setup_phase_feedback_option()
+        self.set_mode_config_option()
+        self.set_amplitude_feedback_options()
+        self.setup_phase_feedback_option()
 
     def set_mode_config_option(self):
         """
