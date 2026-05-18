@@ -38,7 +38,7 @@ _CONSTRUCTOR_MAP = {
 def create_device(name):
     data = slac_db.db_to_yaml.get_device(name)
     if data is None:
-        print(f"Unrecognized device type for device={name}")
+        print(f"Unrecognized name for device={name}")
         return None
     device_type = data.pop("yaml_type")
     constructor = _CONSTRUCTOR_MAP[device_type]
