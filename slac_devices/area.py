@@ -63,13 +63,13 @@ def _prune_invalid_devices(
         payload_copy = dict(payload)
         payload_copy["name"] = name
         try:
-            device_class(**payload_copy)
+            device = device_class(**payload_copy)
         except (ValidationError, TypeError, Exception) as field_error:
             print(
                 f"Skipping invalid {device_type} {name} in {area_name}: {field_error}"
             )
             continue
-        valid_devices[name] = payload_copy
+        valid_devices[name] = device
 
     if not valid_devices:
         return None
@@ -212,7 +212,7 @@ class Area(slac_devices.BaseModel):
         )
         if not valid_magnets:
             return None
-        return MagnetCollection(magnets=valid_magnets)
+        return MagnetCollection.model_construct(devices=valid_magnets)
 
     @field_validator(
         "screen_collection",
@@ -227,7 +227,7 @@ class Area(slac_devices.BaseModel):
         )
         if not valid_screens:
             return None
-        return ScreenCollection(screens=valid_screens)
+        return ScreenCollection.model_construct(devices=valid_screens)
 
     @field_validator(
         "wire_collection",
@@ -242,7 +242,7 @@ class Area(slac_devices.BaseModel):
         )
         if not valid_wires:
             return None
-        return WireCollection(wires=valid_wires)
+        return WireCollection.model_construct(wires=valid_wires)
 
     @field_validator(
         "bpm_collection",
@@ -257,7 +257,7 @@ class Area(slac_devices.BaseModel):
         )
         if not valid_bpms:
             return None
-        return BPMCollection(bpms=valid_bpms)
+        return BPMCollection.model_construct(bpms=valid_bpms)
 
     @field_validator(
         "lblm_collection",
@@ -272,7 +272,7 @@ class Area(slac_devices.BaseModel):
         )
         if not valid_lblms:
             return None
-        return LBLMCollection(lblms=valid_lblms)
+        return LBLMCollection.model_construct(lblms=valid_lblms)
 
     @field_validator(
         "pmt_collection",
@@ -287,7 +287,7 @@ class Area(slac_devices.BaseModel):
         )
         if not valid_pmts:
             return None
-        return PMTCollection(pmts=valid_pmts)
+        return PMTCollection.model_construct(pmts=valid_pmts)
 
     @field_validator(
         "tcav_collection",
@@ -302,7 +302,7 @@ class Area(slac_devices.BaseModel):
         )
         if not valid_tcavs:
             return None
-        return TCAVCollection(tcavs=valid_tcavs)
+        return TCAVCollection.model_construct(tcavs=valid_tcavs)
 
     @property
     def magnets(

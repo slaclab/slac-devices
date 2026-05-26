@@ -58,7 +58,10 @@ class BPM(Device):
 
     def x_buffer(self, buffer):
         """Retrieve TMIT signal data from timing buffer"""
-        return buffer.get_buffer_data(self.controls_information.PVs.x)
+        data = buffer.get_data_buffer(f"{self.controls_information.control_name}:X")
+        if data is None:
+            raise BufferError("No data in buffer or PV not found")
+        return data
 
     @property
     def y(self):
@@ -67,7 +70,10 @@ class BPM(Device):
 
     def y_buffer(self, buffer):
         """Retrieve TMIT signal data from timing buffer"""
-        return buffer.get_buffer_data(self.controls_information.PVs.y)
+        data = buffer.get_data_buffer(f"{self.controls_information.control_name}:Y")
+        if data is None:
+            raise BufferError("No data in buffer or PV not found")
+        return data
 
     @property
     def tmit(self):
@@ -76,7 +82,7 @@ class BPM(Device):
 
     def tmit_buffer(self, buffer):
         """Retrieve TMIT signal data from timing buffer"""
-        data = buffer.get_data_buffer(self.controls_information.PVs.tmit.pvname)
+        data = buffer.get_data_buffer(f"{self.controls_information.control_name}:TMIT")
         if data is None:
             raise BufferError("No data in buffer or PV not found")
         return data
@@ -88,11 +94,36 @@ class BPMCollection(BaseModel):
     @field_validator("bpms", mode="before")
     def validate_bpms(cls, v) -> Dict[str, BPM]:
         for name, bpm in v.items():
+            if isinstance(bpm, BPM):
+                continue
             bpm = dict(bpm)
-            # Set name field for BPM
             bpm.update({"name": name})
             v.update({name: bpm})
         return v
+
+    def get_buffer_data(
+        self, buffer, suffix: str = "TMIT"
+    ) -> Dict[str, Optional[list]]:
+        """Retrieve buffer data for all BPMs in the collection.
+
+        Args:
+            buffer: An edef EventDefinition or BSABuffer object.
+            suffix: PV suffix to read (e.g. "TMIT", "X", "Y").
+
+        Returns:
+            Dict mapping BPM name to data array, or None for unreachable BPMs.
+        """
+
+        def _yield_buffer_data():
+            for name, bpm in self.bpms.items():
+                address = f"{bpm.controls_information.control_name}:{suffix}"
+                try:
+                    data = buffer.get_data_buffer(address)
+                except (TypeError, BufferError):
+                    data = None
+                yield name, data
+
+        return dict(_yield_buffer_data())
 
     def _make_bpm_names_list_from_args(
         self, args: Union[str, List[str], None]
