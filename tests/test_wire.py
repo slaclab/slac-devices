@@ -96,9 +96,7 @@ class WireTest(TestCase):
         }
 
         # 2) Patch the PV class before wire construction so all PVs are mocks
-        self.pv_class_patch = patch(
-            "slac_devices.device.PV", autospec=True
-        )
+        self.pv_class_patch = patch("slac_tools.lazy_pv.PV", autospec=True)
         self.mock_pv_class = self.pv_class_patch.start()
 
         # The instance every PV() call returns

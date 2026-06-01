@@ -18,6 +18,7 @@ from slac_devices.device import (
     Metadata,
     PVSet,
 )
+from slac_timing import Buffer
 from epics import PV
 
 EPICS_ERROR_MESSAGE = "Unable to connect to EPICS."
@@ -65,12 +66,9 @@ class LBLM(Device):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
 
-    def fast_buffer(self, buffer):
+    def fast_buffer(self, buffer: Buffer):
         """Retrieve fast signal data from timing buffer"""
-        data = buffer.get_data_buffer(f"{self.controls_information.control_name}:FAST")
-        if data is None:
-            raise BufferError("No data in buffer or PV not found")
-        return data
+        return buffer.get(f"{self.controls_information.control_name}:FAST")
 
     @property
     def i0_loss(self):
@@ -108,21 +106,13 @@ class LBLM(Device):
         except ValidationError as e:
             print("Bypass must be a boolean:", e)
 
-    def i0_loss_buffer(self, buffer):
+    def i0_loss_buffer(self, buffer: Buffer):
         """Retrieve I0 Loss data from timing buffer"""
-        data = buffer.get_data_buffer(self.controls_information.PVs.i0_loss.pvname)
-        if data is None:
-            raise BufferError("No data in buffer or PV not found")
-        return data
+        return buffer.get(self.controls_information.PVs.i0_loss.pvname)
 
-    def gated_integral_buffer(self, buffer):
+    def gated_integral_buffer(self, buffer: Buffer):
         """Get Gated Integral data from timing buffer"""
-        data = buffer.get_data_buffer(
-            self.controls_information.PVs.gated_integral.pvname
-        )
-        if data is None:
-            raise BufferError("No data in buffer or PV not found")
-        return data
+        return buffer.get(self.controls_information.PVs.gated_integral.pvname)
 
 
 class LBLMCollection(BaseModel):

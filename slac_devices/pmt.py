@@ -13,6 +13,7 @@ from slac_devices.device import (
     Metadata,
     PVSet,
 )
+from slac_timing import Buffer
 from epics import PV
 
 EPICS_ERROR_MESSAGE = "Unable to connect to EPICS."
@@ -45,14 +46,9 @@ class PMT(Device):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
 
-    def qdcraw_buffer(self, buffer):
+    def qdcraw_buffer(self, buffer: Buffer):
         """Retrieve QDCRAW signal data from timing buffer"""
-        data = buffer.get_data_buffer(
-            f"{self.controls_information.control_name}:QDCRAW"
-        )
-        if data is None:
-            raise BufferError("No data in buffer or PV not found")
-        return data
+        return buffer.get(f"{self.controls_information.control_name}:QDCRAW")
 
     @property
     def qdcraw(self):

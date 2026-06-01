@@ -15,6 +15,7 @@ from slac_devices.device import (
     Metadata,
     PVSet,
 )
+from slac_timing import Buffer
 from epics import PV
 
 EPICS_ERROR_MESSAGE = "Unable to connect to EPICS."
@@ -226,8 +227,8 @@ class Wire(Device):
         """Returns the on status of the wire scanner."""
         return self.controls_information.PVs.on_status.get()
 
-    def position_buffer(self, buffer):
-        return buffer.get_data_buffer(f"{self.controls_information.control_name}:POSN")
+    def position_buffer(self, buffer: Buffer):
+        return buffer.get(f"{self.controls_information.control_name}:POSN")
 
     def retract(self):
         """Retracts the wire scanner"""

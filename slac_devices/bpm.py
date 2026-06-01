@@ -15,6 +15,7 @@ from slac_devices.device import (
     Metadata,
     PVSet,
 )
+from slac_timing import Buffer
 from epics import PV
 
 EPICS_ERROR_MESSAGE = "Unable to connect to EPICS."
@@ -56,36 +57,27 @@ class BPM(Device):
         """Get TMIT value"""
         return self.controls_information.PVs.x.get()
 
-    def x_buffer(self, buffer):
-        """Retrieve TMIT signal data from timing buffer"""
-        data = buffer.get_data_buffer(f"{self.controls_information.control_name}:X")
-        if data is None:
-            raise BufferError("No data in buffer or PV not found")
-        return data
+    def x_buffer(self, buffer: Buffer):
+        """Retrieve X position data from timing buffer"""
+        return buffer.get(f"{self.controls_information.control_name}:X")
 
     @property
     def y(self):
         """Get TMIT value"""
         return self.controls_information.PVs.y.get()
 
-    def y_buffer(self, buffer):
-        """Retrieve TMIT signal data from timing buffer"""
-        data = buffer.get_data_buffer(f"{self.controls_information.control_name}:Y")
-        if data is None:
-            raise BufferError("No data in buffer or PV not found")
-        return data
+    def y_buffer(self, buffer: Buffer):
+        """Retrieve Y position data from timing buffer"""
+        return buffer.get(f"{self.controls_information.control_name}:Y")
 
     @property
     def tmit(self):
         """Get TMIT value"""
         return self.controls_information.PVs.tmit.get()
 
-    def tmit_buffer(self, buffer):
+    def tmit_buffer(self, buffer: Buffer):
         """Retrieve TMIT signal data from timing buffer"""
-        data = buffer.get_data_buffer(f"{self.controls_information.control_name}:TMIT")
-        if data is None:
-            raise BufferError("No data in buffer or PV not found")
-        return data
+        return buffer.get(f"{self.controls_information.control_name}:TMIT")
 
 
 class BPMCollection(BaseModel):
@@ -118,7 +110,7 @@ class BPMCollection(BaseModel):
             for name, bpm in self.bpms.items():
                 address = f"{bpm.controls_information.control_name}:{suffix}"
                 try:
-                    data = buffer.get_data_buffer(address)
+                    data = buffer.get(address)
                 except (TypeError, BufferError):
                     data = None
                 yield name, data
