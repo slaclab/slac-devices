@@ -57,27 +57,27 @@ class BPM(Device):
         """Get TMIT value"""
         return self.controls_information.PVs.x.get()
 
-    def x_buffer(self, buffer: Buffer):
-        """Retrieve X position data from timing buffer"""
-        return buffer.get(f"{self.controls_information.control_name}:X")
+    def x_buffer(self, buffer: Buffer, **kwargs):
+        """Retrieve X signal data from timing buffer"""
+        return buffer.get(f"{self.controls_information.control_name}:X", **kwargs)
 
     @property
     def y(self):
         """Get TMIT value"""
         return self.controls_information.PVs.y.get()
 
-    def y_buffer(self, buffer: Buffer):
-        """Retrieve Y position data from timing buffer"""
-        return buffer.get(f"{self.controls_information.control_name}:Y")
+    def y_buffer(self, buffer: Buffer, **kwargs):
+        """Retrieve Y signal data from timing buffer"""
+        return buffer.get(f"{self.controls_information.control_name}:Y", **kwargs)
 
     @property
     def tmit(self):
         """Get TMIT value"""
         return self.controls_information.PVs.tmit.get()
 
-    def tmit_buffer(self, buffer: Buffer):
+    def tmit_buffer(self, buffer: Buffer, **kwargs):
         """Retrieve TMIT signal data from timing buffer"""
-        return buffer.get(f"{self.controls_information.control_name}:TMIT")
+        return buffer.get(f"{self.controls_information.control_name}:TMIT", **kwargs)
 
 
 class BPMCollection(BaseModel):
@@ -94,13 +94,14 @@ class BPMCollection(BaseModel):
         return v
 
     def get_buffer_data(
-        self, buffer, suffix: str = "TMIT"
+        self, buffer, suffix: str = "TMIT", **kwargs
     ) -> Dict[str, Optional[list]]:
         """Retrieve buffer data for all BPMs in the collection.
 
         Args:
             buffer: An edef EventDefinition or BSABuffer object.
             suffix: PV suffix to read (e.g. "TMIT", "X", "Y").
+            **kwargs: Passed to buffer.get() (e.g. pad, retries).
 
         Returns:
             Dict mapping BPM name to data array, or None for unreachable BPMs.
@@ -110,7 +111,7 @@ class BPMCollection(BaseModel):
             for name, bpm in self.bpms.items():
                 address = f"{bpm.controls_information.control_name}:{suffix}"
                 try:
-                    data = buffer.get(address)
+                    data = buffer.get(address, **kwargs)
                 except (TypeError, BufferError):
                     data = None
                 yield name, data

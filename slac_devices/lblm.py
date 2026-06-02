@@ -66,9 +66,9 @@ class LBLM(Device):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
 
-    def fast_buffer(self, buffer: Buffer):
+    def fast_buffer(self, buffer: Buffer, **kwargs):
         """Retrieve fast signal data from timing buffer"""
-        return buffer.get(f"{self.controls_information.control_name}:FAST")
+        return buffer.get(f"{self.controls_information.control_name}:FAST", **kwargs)
 
     @property
     def i0_loss(self):
@@ -106,13 +106,13 @@ class LBLM(Device):
         except ValidationError as e:
             print("Bypass must be a boolean:", e)
 
-    def i0_loss_buffer(self, buffer: Buffer):
+    def i0_loss_buffer(self, buffer: Buffer, **kwargs):
         """Retrieve I0 Loss data from timing buffer"""
-        return buffer.get(self.controls_information.PVs.i0_loss.pvname)
+        return buffer.get(self.controls_information.PVs.i0_loss.pvname, **kwargs)
 
-    def gated_integral_buffer(self, buffer: Buffer):
+    def gated_integral_buffer(self, buffer: Buffer, **kwargs):
         """Get Gated Integral data from timing buffer"""
-        return buffer.get(self.controls_information.PVs.gated_integral.pvname)
+        return buffer.get(self.controls_information.PVs.gated_integral.pvname, **kwargs)
 
 
 class LBLMCollection(BaseModel):
