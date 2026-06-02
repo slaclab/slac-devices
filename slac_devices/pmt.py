@@ -13,6 +13,7 @@ from slac_devices.device import (
     Metadata,
     PVSet,
 )
+from slac_timing import Buffer
 from epics import PV
 
 EPICS_ERROR_MESSAGE = "Unable to connect to EPICS."
