@@ -170,7 +170,7 @@ class MagnetTest(TestCase):
     def test_set_bdes(self, mock_pv_put) -> None:
         mock_pv_put.return_value = None
         self.magnet.bdes = 0.1
-        mock_pv_put.assert_called_once_with(value=0.1)
+        mock_pv_put.assert_called_once_with(value=0.1, wait=True)
 
     @patch("epics.PV.get", new_callable=Mock)
     def test_get_bctrl(self, mock_pv_get) -> None:
@@ -399,7 +399,7 @@ class MagnetCollectionTest(TestCase):
         }
         mock_bact_settled.return_value = True
         self.magnet_collection.set_bdes(magnet_dict=bdes_settings)
-        mock_bdes_put.assert_called_once_with(value=0.1)
+        mock_bdes_put.assert_called_once_with(value=0.1, wait=True)
         mock_trim.assert_called_once()
         mock_bact_settled.assert_called_once_with()
 
