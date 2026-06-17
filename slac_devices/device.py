@@ -24,6 +24,12 @@ class PVSet(slac_devices.BaseModel):
     def serialize_pv_fields(self, v: LazyPV, _info) -> str:
         return v.pvname
 
+    def disconnect(self):
+        for field_name in self.model_fields:
+            pv = getattr(self, field_name)
+            if isinstance(pv, LazyPV):
+                pv.disconnect()
+
 
 class ControlInformation(slac_devices.BaseModel):
     model_config = ConfigDict(
