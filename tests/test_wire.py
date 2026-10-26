@@ -306,17 +306,15 @@ class RangeStatusTest(TestCase):
         status = self._status(x_speed_calc=1500.0)
         self.assertEqual(status.state, SpeedState.TOO_FAST)
         self.assertEqual(status.summary, "Too fast: range too large")
-        # width 1000 * 1200 / 1500 = 800; pulses must exceed 240 * 1500 / 1200 = 300
-        self.assertIn("less than 800 um", status.advice)
-        self.assertIn("at least 301", status.advice)
+        # width 1000 * 1200 / 1500 = 800
+        self.assertEqual(status.advice, "Narrow the range to less than 800 um")
 
     def test_too_slow(self):
         status = self._status(x_speed_calc=50.0)
         self.assertEqual(status.state, SpeedState.TOO_SLOW)
         self.assertEqual(status.summary, "Too slow: range too small")
-        # width 1000 * 100 / 50 = 2000; pulses must be below 240 * 50 / 100 = 120
-        self.assertIn("more than 2000 um", status.advice)
-        self.assertIn("at most 119", status.advice)
+        # width 1000 * 100 / 50 = 2000
+        self.assertEqual(status.advice, "Widen the range to more than 2000 um")
 
     def test_limits_are_exclusive(self):
         self.assertEqual(self._status(x_speed_calc=1200.0).state, SpeedState.TOO_FAST)
@@ -347,10 +345,9 @@ class RangeStatusTest(TestCase):
         self.assertEqual([s.plane for s in invalid], ["x"])
         self.wire.range_status.assert_called_once_with("x")
 
-    def test_too_slow_with_zero_speed_has_no_pulse_hint(self):
-        status = self._status(x_speed_calc=0.0)
-        self.assertEqual(status.state, SpeedState.TOO_SLOW)
-        self.assertNotIn("pulses", status.advice)
+    def test_advice_never_mentions_scan_pulses(self):
+        for speed in (0.0, 50.0, 1500.0):
+            self.assertNotIn("pulses", self._status(x_speed_calc=speed).advice)
 
     def test_numpy_values_are_accepted(self):
         import numpy as np

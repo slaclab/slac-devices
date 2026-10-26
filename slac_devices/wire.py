@@ -1,5 +1,4 @@
 from enum import Enum
-import math
 from pydantic import (
     BaseModel,
     PrivateAttr,
@@ -157,7 +156,7 @@ class RangeStatus(BaseModel):
     def summary(self) -> str:
         """Short status text for display next to the range fields."""
         if self.state == SpeedState.OK:
-            return f"OK ({self.speed:.0f} um/s)"
+            return "OK"
         if self.state == SpeedState.TOO_FAST:
             return "Too fast: range too large"
         if self.state == SpeedState.TOO_SLOW:
@@ -168,52 +167,24 @@ class RangeStatus(BaseModel):
 
     @property
     def advice(self) -> str:
-        """Explain why the speed is invalid and how to fix it.
+        """How to fix an invalid speed, as a short range-width target.
 
-        Speed scales linearly with range width and inversely with scan
-        pulses, so the limits translate directly into a width or pulse target.
+        Speed scales linearly with range width, so each limit translates
+        directly into a target width.
         """
         if self.state == SpeedState.OK:
-            return (
-                f"Speed {self.speed:.0f} um/s is within limits "
-                f"({self.speed_floor:.0f} to {self.speed_max:.0f} um/s)."
-            )
+            return ""
         if self.state == SpeedState.BAD_RANGE:
-            return (
-                f"Inner ({self.inner:.0f} um) must be less than "
-                f"outer ({self.outer:.0f} um)."
-            )
+            return ""
         if self.state == SpeedState.NO_BEAM:
-            return "Beam rate is 0. Scans need beam; wait for beam to return."
+            return "Wait for beam to return"
         if self.state == SpeedState.TOO_FAST:
             max_width = self.width * self.speed_max / self.speed
-            min_pulses = math.floor(self.scan_pulses * self.speed / self.speed_max) + 1
-            return (
-                f"Speed {self.speed:.0f} um/s is above the maximum "
-                f"{self.speed_max:.0f} um/s. Narrow the range to less than "
-                f"{max_width:.0f} um (now {self.width:.0f} um), or raise scan "
-                f"pulses to at least {min_pulses} (now {self.scan_pulses})."
-            )
-        min_width = self.width * self.speed_floor / self.speed if self.speed else None
-        max_pulses = (
-            math.ceil(self.scan_pulses * self.speed / self.speed_floor) - 1
-            if self.speed_floor > 0
-            else 0
-        )
-        width_hint = (
-            f"Widen the range to more than {min_width:.0f} um (now {self.width:.0f} um)"
-            if min_width is not None
-            else "Widen the range"
-        )
-        pulse_hint = (
-            f", or lower scan pulses to at most {max_pulses} (now {self.scan_pulses})"
-            if max_pulses >= 1
-            else ""
-        )
-        return (
-            f"Speed {self.speed:.0f} um/s is below the minimum "
-            f"{self.speed_floor:.0f} um/s. {width_hint}{pulse_hint}."
-        )
+            return f"Narrow the range to less than {max_width:.0f} um"
+        if not self.speed:
+            return "Widen the range"
+        min_width = self.width * self.speed_floor / self.speed
+        return f"Widen the range to more than {min_width:.0f} um"
 
 
 class Wire(Device):
