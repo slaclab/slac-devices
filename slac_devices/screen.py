@@ -54,7 +54,7 @@ class ScreenPVSet(PVSet):
 
 class ScreenControlInformation(ControlInformation):
     PVs: SerializeAsAny[ScreenPVSet]
-    pv_cache: dict = None
+    pv_cache: Optional[dict] = None
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
