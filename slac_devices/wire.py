@@ -1,7 +1,6 @@
 from enum import Enum
 from pydantic import (
     BaseModel,
-    PrivateAttr,
     SerializeAsAny,
     field_validator,
 )
@@ -19,7 +18,6 @@ from slac_devices.device import (
 )
 from slac_timing import Buffer
 from epics import PV
-from slac_tools import LazyPV
 
 EPICS_ERROR_MESSAGE = "Unable to connect to EPICS."
 
@@ -56,7 +54,7 @@ def validate_boolean(v) -> bool:
 
 class WirePVSet(PVSet):
     abort_scan: PV
-    beam_rate: Optional[PV] = None
+    beam_rate: PV
     enabled: Optional[PV] = None
     homed: Optional[PV] = None
     initialize: Optional[PV] = None
@@ -190,7 +188,6 @@ class RangeStatus(BaseModel):
 class Wire(Device):
     controls_information: SerializeAsAny[WireControlInformation]
     metadata: SerializeAsAny[WireMetadata]
-    _shared_beam_rate: Optional[LazyPV] = PrivateAttr(default=None)
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
@@ -241,29 +238,7 @@ class Wire(Device):
     @property
     def beam_rate(self):
         """Returns current beam rate"""
-        # Some wires do not have dedicated beam rate PVs.
-        # See CATER 180392 for more details
-        if self.controls_information.PVs.beam_rate is not None:
-            return self.controls_information.PVs.beam_rate.get()
-        if self._shared_beam_rate is None:
-            nc_areas = [
-                "LI20",
-                "LI24",
-                "LI28",
-                "L3",
-                "LTUH",
-                "DL1",
-                "BC1",
-                "BC2",
-                "LTU",
-            ]
-            if self.area in nc_areas:
-                self._shared_beam_rate = LazyPV("EVNT:SYS0:1:LCLSBEAMRATE")
-            elif self.area in ["DIAG0"]:
-                self._shared_beam_rate = LazyPV("TPG:SYS0:1:DST01:RATE")
-            else:
-                raise AttributeError("beam_rate PV is not defined for this device")
-        return self._shared_beam_rate.get()
+        return self.controls_information.PVs.beam_rate.get()
 
     @property
     def enabled(self):
