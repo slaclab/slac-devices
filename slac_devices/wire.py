@@ -22,11 +22,11 @@ from epics import PV
 EPICS_ERROR_MESSAGE = "Unable to connect to EPICS."
 
 
-def validate_plane(v: str) -> str:
-    """Validate plane is X, Y, or U."""
+def validate_profile(v: str) -> str:
+    """Validate profile is X, Y, or U."""
     if isinstance(v, str) and v.lower() in ["x", "y", "u"]:
         return v.lower()
-    raise ValueError("plane must be X, Y, or U")
+    raise ValueError("profile must be X, Y, or U")
 
 
 def validate_range(v: list) -> list:
@@ -117,7 +117,7 @@ class WireMetadata(Metadata):
 
 
 class SpeedState(str, Enum):
-    """Validity of a plane's scan speed."""
+    """Validity of a profile's scan speed."""
 
     OK = "ok"
     TOO_FAST = "too_fast"
@@ -127,12 +127,12 @@ class SpeedState(str, Enum):
 
 
 class RangeStatus(BaseModel):
-    """Speed validity of one plane's scan range, with a plain-language fix.
+    """Speed validity of one profile's scan range, with a plain-language fix.
 
     Speeds are in um/s, positions in um.
     """
 
-    plane: str
+    profile: str
     state: SpeedState
     speed: float
     speed_floor: float
@@ -173,7 +173,7 @@ class RangeStatus(BaseModel):
         if self.state == SpeedState.OK:
             return ""
         if self.state == SpeedState.BAD_RANGE:
-            return ""
+            return "Inner must be less than outer"
         if self.state == SpeedState.NO_BEAM:
             return "Wait for beam to return"
         if self.state == SpeedState.TOO_FAST:
@@ -193,31 +193,31 @@ class Wire(Device):
         super().__init__(**kwargs)
 
     def _repr_string(self) -> str:
-        """Build the string representation including active planes and ranges."""
-        planes = []
+        """Build the string representation including active profiles and ranges."""
+        profiles = []
         try:
             if self.use_x_wire:
-                planes.append(f"X[{self.x_wire_inner}-{self.x_wire_outer}]")
+                profiles.append(f"X[{self.x_wire_inner}-{self.x_wire_outer}]")
             if self.use_y_wire:
-                planes.append(f"Y[{self.y_wire_inner}-{self.y_wire_outer}]")
+                profiles.append(f"Y[{self.y_wire_inner}-{self.y_wire_outer}]")
             if self.use_u_wire:
-                planes.append(f"U[{self.u_wire_inner}-{self.u_wire_outer}]")
+                profiles.append(f"U[{self.u_wire_inner}-{self.u_wire_outer}]")
         except Exception:
-            # If PVs are unavailable, just skip plane info
+            # If PVs are unavailable, just skip profile info
             pass
 
-        planes_str = ", ".join(planes) if planes else "no planes configured"
-        return f"Wire(name={self.name!r}, area={self.area!r}, planes={planes_str})"
+        profiles_str = ", ".join(profiles) if profiles else "no profiles configured"
+        return f"Wire(name={self.name!r}, area={self.area!r}, profiles={profiles_str})"
 
     def __repr__(self) -> str:
         """Return the display string for this wire."""
         return self._repr_string()
 
     def active_profiles(self) -> List[str]:
-        """Return list of currently enabled planes.
+        """Return list of currently enabled profiles.
 
         Returns:
-            List[str]: Planes that are enabled (e.g., ['X', 'Y'])
+            List[str]: Profiles that are enabled (e.g., ['X', 'Y'])
         """
         active = []
         try:
@@ -317,8 +317,8 @@ class Wire(Device):
         else:
             raise AttributeError("scan_status PV is not defined for this device")
 
-    def set_range(self, plane: str, val: list) -> None:
-        self._set_plane_range(plane, val)
+    def set_range(self, profile: str, val: list) -> None:
+        self._set_profile_range(profile, val)
 
     @property
     def speed(self):
@@ -350,17 +350,17 @@ class Wire(Device):
 
     @property
     def x_speed_calc(self):
-        """Returns the IOC-calculated X plane scan speed in um/s."""
+        """Returns the IOC-calculated X profile scan speed in um/s."""
         return self.controls_information.PVs.x_speed_calc.get()
 
     @property
     def y_speed_calc(self):
-        """Returns the IOC-calculated Y plane scan speed in um/s."""
+        """Returns the IOC-calculated Y profile scan speed in um/s."""
         return self.controls_information.PVs.y_speed_calc.get()
 
     @property
     def u_speed_calc(self):
-        """Returns the IOC-calculated U plane scan speed in um/s."""
+        """Returns the IOC-calculated U profile scan speed in um/s."""
         return self.controls_information.PVs.u_speed_calc.get()
 
     def start_scan(self):
@@ -407,15 +407,15 @@ class Wire(Device):
         """Returns the u wire thickness in um."""
         return self.controls_information.PVs.u_size.get()
 
-    def use(self, plane: str, val: bool) -> None:
-        validate_plane(plane)
+    def use(self, profile: str, val: bool) -> None:
+        validate_profile(profile)
         validate_boolean(val)
-        property_name = "use_" + plane.lower() + "_wire"
+        property_name = "use_" + profile.lower() + "_wire"
         setattr(self, property_name, val)
 
     @property
     def use_x_wire(self):
-        """Checks if the X plane will be scanned."""
+        """Checks if the X profile will be scanned."""
         return self.controls_information.PVs.use_x_wire.get()
 
     @use_x_wire.setter
@@ -426,13 +426,13 @@ class Wire(Device):
     @property
     def x_range(self):
         """
-        Returns the X plane scan range.
+        Returns the X profile scan range.
         """
         return [self.x_wire_inner, self.x_wire_outer]
 
     @property
     def x_wire_inner(self):
-        """Returns the inner point of the X plane scan range."""
+        """Returns the inner point of the X profile scan range."""
         return self.controls_information.PVs.x_wire_inner.get()
 
     @x_wire_inner.setter
@@ -442,7 +442,7 @@ class Wire(Device):
 
     @property
     def x_wire_outer(self):
-        """Returns the outer point of the X plane scan range."""
+        """Returns the outer point of the X profile scan range."""
         return self.controls_information.PVs.x_wire_outer.get()
 
     @x_wire_outer.setter
@@ -452,7 +452,7 @@ class Wire(Device):
 
     @property
     def use_y_wire(self):
-        """Checks if the Y plane will be scanned."""
+        """Checks if the Y profile will be scanned."""
         return self.controls_information.PVs.use_y_wire.get()
 
     @use_y_wire.setter
@@ -463,13 +463,13 @@ class Wire(Device):
     @property
     def y_range(self):
         """
-        Returns the Y plane scan range.
+        Returns the Y profile scan range.
         """
         return [self.y_wire_inner, self.y_wire_outer]
 
     @property
     def y_wire_inner(self):
-        """Returns the inner point of the Y plane scan range."""
+        """Returns the inner point of the Y profile scan range."""
         return self.controls_information.PVs.y_wire_inner.get()
 
     @y_wire_inner.setter
@@ -479,7 +479,7 @@ class Wire(Device):
 
     @property
     def y_wire_outer(self):
-        """Returns the outer point of the Y plane scan range."""
+        """Returns the outer point of the Y profile scan range."""
         return self.controls_information.PVs.y_wire_outer.get()
 
     @y_wire_outer.setter
@@ -489,7 +489,7 @@ class Wire(Device):
 
     @property
     def use_u_wire(self):
-        """Checks if the U plane will be scanned."""
+        """Checks if the U profile will be scanned."""
         return self.controls_information.PVs.use_u_wire.get()
 
     @use_u_wire.setter
@@ -500,13 +500,13 @@ class Wire(Device):
     @property
     def u_range(self):
         """
-        Returns the U plane scan range.
+        Returns the U profile scan range.
         """
         return [self.u_wire_inner, self.u_wire_outer]
 
     @property
     def u_wire_inner(self):
-        """Returns the inner point of the U plane scan range."""
+        """Returns the inner point of the U profile scan range."""
         return self.controls_information.PVs.u_wire_inner.get()
 
     @u_wire_inner.setter
@@ -516,7 +516,7 @@ class Wire(Device):
 
     @property
     def u_wire_outer(self):
-        """Returns the outer point of the U plane scan range."""
+        """Returns the outer point of the U profile scan range."""
         return self.controls_information.PVs.u_wire_outer.get()
 
     @u_wire_outer.setter
@@ -528,30 +528,31 @@ class Wire(Device):
     def type(self) -> str:
         return self.metadata.type
 
-    def _set_plane_range(self, plane: str, val: list) -> None:
-        """Set both range endpoints of a plane."""
-        plane = validate_plane(plane)
+    def _set_profile_range(self, profile: str, val: list) -> None:
+        """Set both range endpoints of a profile."""
+        profile = validate_profile(profile)
         validate_range(val)
-        getattr(self.controls_information.PVs, f"{plane}_wire_inner").put(value=val[0])
-        getattr(self.controls_information.PVs, f"{plane}_wire_outer").put(value=val[1])
+        pvs = self.controls_information.PVs
+        getattr(pvs, f"{profile}_wire_inner").put(value=val[0])
+        getattr(pvs, f"{profile}_wire_outer").put(value=val[1])
 
-    def range_status(self, plane: str) -> RangeStatus:
-        """Check whether a plane's scan range gives a valid wire speed.
+    def range_status(self, profile: str) -> RangeStatus:
+        """Check whether a profile's scan range gives a valid wire speed.
 
-        The IOC calculates the scan speed for each plane from the range, beam
+        The IOC calculates the scan speed for each profile from the range, beam
         rate and scan pulses (WIRE{X,Y,U}SPEED_CALC). The speed is valid when
         speed_floor < speed < speed_max.
 
         Args:
-            plane: Plane identifier (X, Y, U)
+            profile: Profile identifier (X, Y, U)
 
         Returns:
             RangeStatus describing the speed state and how to fix it
         """
-        plane = validate_plane(plane)
-        inner = getattr(self, f"{plane}_wire_inner")
-        outer = getattr(self, f"{plane}_wire_outer")
-        speed = getattr(self, f"{plane}_speed_calc")
+        profile = validate_profile(profile)
+        inner = getattr(self, f"{profile}_wire_inner")
+        outer = getattr(self, f"{profile}_wire_outer")
+        speed = getattr(self, f"{profile}_speed_calc")
         beam_rate = self.beam_rate
         floor = self.speed_floor
         speed_max = self.speed_max
@@ -568,7 +569,7 @@ class Wire(Device):
             state = SpeedState.OK
 
         return RangeStatus(
-            plane=plane,
+            profile=profile,
             state=state,
             speed=float(speed),
             speed_floor=float(floor),
@@ -579,9 +580,9 @@ class Wire(Device):
             beam_rate=float(beam_rate),
         )
 
-    def invalid_planes(self) -> List[RangeStatus]:
-        """Return the range status of every active plane with an invalid speed."""
-        statuses = [self.range_status(plane) for plane in self.active_profiles()]
+    def invalid_profiles(self) -> List[RangeStatus]:
+        """Return the range status of every active profile with an invalid speed."""
+        statuses = [self.range_status(profile) for profile in self.active_profiles()]
         return [status for status in statuses if not status.valid]
 
 

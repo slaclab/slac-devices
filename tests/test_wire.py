@@ -328,6 +328,7 @@ class RangeStatusTest(TestCase):
     def test_bad_range(self):
         status = self._status(x_wire_inner=1000, x_wire_outer=1000)
         self.assertEqual(status.state, SpeedState.BAD_RANGE)
+        self.assertEqual(status.advice, "Inner must be less than outer")
 
     def test_speed_floor_uses_higher_limit(self):
         self.wire.speed_min = 50
@@ -336,13 +337,13 @@ class RangeStatusTest(TestCase):
         self.wire.mps_speed = 20
         self.assertEqual(Wire.speed_floor.fget(self.wire), 50)
 
-    def test_invalid_planes_ignores_inactive_planes(self):
+    def test_invalid_profiles_ignores_inactive_profiles(self):
         self.wire.active_profiles.return_value = ["x"]
-        self.wire.range_status.side_effect = lambda plane: self._status(
+        self.wire.range_status.side_effect = lambda profile: self._status(
             x_speed_calc=1500.0
         )
-        invalid = Wire.invalid_planes(self.wire)
-        self.assertEqual([s.plane for s in invalid], ["x"])
+        invalid = Wire.invalid_profiles(self.wire)
+        self.assertEqual([s.profile for s in invalid], ["x"])
         self.wire.range_status.assert_called_once_with("x")
 
     def test_advice_never_mentions_scan_pulses(self):
