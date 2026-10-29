@@ -305,16 +305,14 @@ class RangeStatusTest(TestCase):
     def test_too_fast(self):
         status = self._status(x_speed_calc=1500.0)
         self.assertEqual(status.state, SpeedState.TOO_FAST)
-        self.assertEqual(status.summary, "Too fast: range too large")
         # width 1000 * 1200 / 1500 = 800
-        self.assertEqual(status.advice, "Narrow the range to less than 800 um")
+        self.assertEqual(status.max_width, 800)
 
     def test_too_slow(self):
         status = self._status(x_speed_calc=50.0)
         self.assertEqual(status.state, SpeedState.TOO_SLOW)
-        self.assertEqual(status.summary, "Too slow: range too small")
         # width 1000 * 100 / 50 = 2000
-        self.assertEqual(status.advice, "Widen the range to more than 2000 um")
+        self.assertEqual(status.min_width, 2000)
 
     def test_limits_are_exclusive(self):
         self.assertEqual(self._status(x_speed_calc=1200.0).state, SpeedState.TOO_FAST)
@@ -328,7 +326,7 @@ class RangeStatusTest(TestCase):
     def test_bad_range(self):
         status = self._status(x_wire_inner=1000, x_wire_outer=1000)
         self.assertEqual(status.state, SpeedState.BAD_RANGE)
-        self.assertEqual(status.advice, "Inner must be less than outer")
+        self.assertFalse(status.valid)
 
     def test_speed_floor_uses_higher_limit(self):
         self.wire.speed_min = 50
@@ -345,10 +343,6 @@ class RangeStatusTest(TestCase):
         invalid = Wire.invalid_profiles(self.wire)
         self.assertEqual([s.profile for s in invalid], ["x"])
         self.wire.range_status.assert_called_once_with("x")
-
-    def test_advice_never_mentions_scan_pulses(self):
-        for speed in (0.0, 50.0, 1500.0):
-            self.assertNotIn("pulses", self._status(x_speed_calc=speed).advice)
 
     def test_numpy_values_are_accepted(self):
         import numpy as np

@@ -1,6 +1,7 @@
 from enum import Enum
 from pydantic import (
     BaseModel,
+    Field,
     SerializeAsAny,
     field_validator,
 )
@@ -119,28 +120,33 @@ class WireMetadata(Metadata):
 class SpeedState(str, Enum):
     """Validity of a profile's scan speed."""
 
-    OK = "ok"
-    TOO_FAST = "too_fast"
-    TOO_SLOW = "too_slow"
-    NO_BEAM = "no_beam"
-    BAD_RANGE = "bad_range"
+    OK = "ok"  # speed_floor < speed < speed_max
+    TOO_FAST = "too_fast"  # speed >= speed_max: range too wide
+    TOO_SLOW = "too_slow"  # speed <= speed_floor: range too narrow
+    NO_BEAM = "no_beam"  # beam rate is 0, speed is meaningless
+    BAD_RANGE = "bad_range"  # inner >= outer
 
 
 class RangeStatus(BaseModel):
-    """Speed validity of one profile's scan range, with a plain-language fix.
+    """Result of checking one profile's scan range against the speed limits.
 
-    Speeds are in um/s, positions in um.
+    ``state`` is decided in order: BAD_RANGE, NO_BEAM, TOO_FAST, TOO_SLOW,
+    then OK. Both speed limits are exclusive.
+
+    Speed scales linearly with range width, so ``min_width`` and
+    ``max_width`` give the range widths at which the speed would reach
+    each limit.
     """
 
-    profile: str
-    state: SpeedState
-    speed: float
-    speed_floor: float
-    speed_max: float
-    inner: float
-    outer: float
-    scan_pulses: int
-    beam_rate: float
+    profile: str = Field(description="Profile checked: x, y or u")
+    state: SpeedState = Field(description="Result of the speed check")
+    speed: float = Field(description="IOC-calculated scan speed (um/s)")
+    speed_floor: float = Field(description="Minimum allowed speed (um/s)")
+    speed_max: float = Field(description="Maximum allowed speed (um/s)")
+    inner: float = Field(description="Inner range endpoint (um)")
+    outer: float = Field(description="Outer range endpoint (um)")
+    scan_pulses: int = Field(description="Beam pulses per scan")
+    beam_rate: float = Field(description="Beam rate (Hz)")
 
     @property
     def valid(self) -> bool:
@@ -148,41 +154,18 @@ class RangeStatus(BaseModel):
 
     @property
     def width(self) -> float:
+        """Range width (um)."""
         return self.outer - self.inner
 
     @property
-    def summary(self) -> str:
-        """Short status text for display next to the range fields."""
-        if self.state == SpeedState.OK:
-            return "OK"
-        if self.state == SpeedState.TOO_FAST:
-            return "Too fast: range too large"
-        if self.state == SpeedState.TOO_SLOW:
-            return "Too slow: range too small"
-        if self.state == SpeedState.NO_BEAM:
-            return "No beam rate"
-        return "Inner must be less than outer"
+    def min_width(self) -> float:
+        """Range width (um) at which the speed reaches speed_floor."""
+        return self.width * self.speed_floor / self.speed
 
     @property
-    def advice(self) -> str:
-        """How to fix an invalid speed, as a short range-width target.
-
-        Speed scales linearly with range width, so each limit translates
-        directly into a target width.
-        """
-        if self.state == SpeedState.OK:
-            return ""
-        if self.state == SpeedState.BAD_RANGE:
-            return "Inner must be less than outer"
-        if self.state == SpeedState.NO_BEAM:
-            return "Wait for beam to return"
-        if self.state == SpeedState.TOO_FAST:
-            max_width = self.width * self.speed_max / self.speed
-            return f"Narrow the range to less than {max_width:.0f} um"
-        if not self.speed:
-            return "Widen the range"
-        min_width = self.width * self.speed_floor / self.speed
-        return f"Widen the range to more than {min_width:.0f} um"
+    def max_width(self) -> float:
+        """Range width (um) at which the speed reaches speed_max."""
+        return self.width * self.speed_max / self.speed
 
 
 class Wire(Device):
@@ -547,7 +530,7 @@ class Wire(Device):
             profile: Profile identifier (X, Y, U)
 
         Returns:
-            RangeStatus describing the speed state and how to fix it
+            RangeStatus with the speed state and the values it was decided from
         """
         profile = validate_profile(profile)
         inner = getattr(self, f"{profile}_wire_inner")
