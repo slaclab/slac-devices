@@ -2,88 +2,92 @@
 
 # Built in
 import datetime
-from unittest import TestCase
-from unittest.mock import Mock, patch, PropertyMock
 import inspect
+from unittest.mock import Mock, patch, PropertyMock
+
+import pytest
 
 # Local imports
 from slac_devices.reader import create_magnet
 from slac_devices.magnet import MagnetCollection, Magnet
 
+CTRL_OPTIONS = [
+    "TRIM",
+    "PERTURB",
+    "BCON_TO_BDES",
+    "SAVE_BDES",
+    "LOAD_BDES",
+    "UNDO_BDES",
+    "DAC_ZERO",
+    "CALIB",
+    "STDZ",
+    "RESET",
+    "TURN_OFF",
+    "TURN_ON",
+    "DEGAUSS",
+]
+OPTIONS_REQUIRING_STATE_CHECK = [
+    "TRIM",
+    "PERTURB",
+    "DAC_ZERO",
+    "CALIB",
+    "STDZ",
+]
 
-class MagnetTest(TestCase):
-    def setUp(self) -> None:
-        # Set up some mocks that are needed for all test-cases.
-        self.options_and_getter_function = {
-            "TRIM": None,
-            "PERTURB": None,
-            "BCON_TO_BDES": None,
-            "SAVE_BDES": None,
-            "LOAD_BDES": None,
-            "UNDO_BDES": None,
-            "DAC_ZERO": None,
-            "CALIB": None,
-            "STDZ": None,
-            "RESET": None,
-            "TURN_OFF": None,
-            "TURN_ON": None,
-            "DEGAUSS": None,
-        }
-        # set up patch so that each magnet is constructured with ALL ctrl options
-        self.ctrl_options_patch = patch("epics.PV.get_ctrlvars", new_callable=Mock)
-        self.mock_ctrl_options = self.ctrl_options_patch.start()
-        self.mock_ctrl_options.return_value = {
-            "enum_strs": tuple(self.options_and_getter_function.keys())
-        }
-        # create the SOL1B magnet with all possible ctrl options
-        self.magnet = create_magnet(
-            area="GUNB",
-            name="SOL1B",
-        )
-        # Set up some variables that are used by several test-cases
-        self.options_requiring_state_check = [
-            "TRIM",
-            "PERTURB",
-            "DAC_ZERO",
-            "CALIB",
-            "STDZ",
-        ]
-        self.options_and_getter_function = {
-            "TRIM": self.magnet.trim,
-            "PERTURB": self.magnet.perturb,
-            "BCON_TO_BDES": self.magnet.con_to_des,
-            "SAVE_BDES": self.magnet.save_bdes,
-            "LOAD_BDES": self.magnet.load_bdes,
-            "UNDO_BDES": self.magnet.undo_bdes,
-            "DAC_ZERO": self.magnet.dac_zero,
-            "CALIB": self.magnet.calibrate,
-            "STDZ": self.magnet.standardize,
-            "RESET": self.magnet.reset,
-            "TURN_OFF": self.magnet.turn_off,
-            "TURN_ON": self.magnet.turn_on,
-            "DEGAUSS": self.magnet.degauss,
-        }
-        return super().setUp()
 
-    def tearDown(self) -> None:
-        # Stop the shared patches after each test-case is complete.
-        self.ctrl_options_patch.stop()
-        return super().tearDown()
+@pytest.fixture
+def all_ctrl_options(mock_ctrlvars):
+    """Construct each magnet with ALL ctrl options."""
+    mock_ctrlvars.return_value = {"enum_strs": tuple(CTRL_OPTIONS)}
+    return mock_ctrlvars
 
-    def test_properties_exist(self) -> None:
+
+@pytest.fixture
+def magnet(all_ctrl_options):
+    return create_magnet(
+        area="GUNB",
+        name="SOL1B",
+    )
+
+
+@pytest.fixture
+def control_functions(magnet):
+    """Map each ctrl option to the magnet method that triggers it."""
+    return {
+        "TRIM": magnet.trim,
+        "PERTURB": magnet.perturb,
+        "BCON_TO_BDES": magnet.con_to_des,
+        "SAVE_BDES": magnet.save_bdes,
+        "LOAD_BDES": magnet.load_bdes,
+        "UNDO_BDES": magnet.undo_bdes,
+        "DAC_ZERO": magnet.dac_zero,
+        "CALIB": magnet.calibrate,
+        "STDZ": magnet.standardize,
+        "RESET": magnet.reset,
+        "TURN_OFF": magnet.turn_off,
+        "TURN_ON": magnet.turn_on,
+        "DEGAUSS": magnet.degauss,
+    }
+
+
+@pytest.fixture
+def magnet_collection(all_ctrl_options):
+    return create_magnet(area="GUNB")
+
+
+class TestMagnet:
+    def test_properties_exist(self, magnet) -> None:
         """Test that all the properties we expect exist"""
         # Assert that magnet has all auto-generated private attributes
-        for handle, _ in self.magnet.controls_information.PVs:
-            self.assertTrue(
-                hasattr(self.magnet, handle),
-                msg=f"expected magnet to have attribute {handle}",
-            )
-        for item, _ in self.magnet.metadata:
+        for handle, _ in magnet.controls_information.PVs:
+            assert hasattr(
+                magnet, handle
+            ), f"expected magnet to have attribute {handle}"
+        for item, _ in magnet.metadata:
             if item != "hardware":
-                self.assertTrue(
-                    hasattr(self.magnet, item),
-                    msg=f"expected magnet to have attribute {item}",
-                )
+                assert hasattr(
+                    magnet, item
+                ), f"expected magnet to have attribute {item}"
         # Assert that magnet has public properties
         for item in [
             "bctrl",
@@ -95,87 +99,84 @@ class MagnetTest(TestCase):
             "bmin",
             #    "bdes", # is this somewhere else?
         ]:
-            self.assertTrue(
-                hasattr(self.magnet, item),
-                msg=f"expected magnet to have attribute {item}",
-            )
+            assert hasattr(magnet, item), f"expected magnet to have attribute {item}"
 
-    def test_methods(self) -> None:
+    def test_methods(self, magnet) -> None:
         """Test that all the methods we expect exist"""
-        self.assertEqual(inspect.ismethod(self.magnet.trim), True)
-        self.assertEqual(inspect.ismethod(self.magnet.perturb), True)
-        self.assertEqual(inspect.ismethod(self.magnet.con_to_des), True)
-        self.assertEqual(inspect.ismethod(self.magnet.save_bdes), True)
-        self.assertEqual(inspect.ismethod(self.magnet.load_bdes), True)
-        self.assertEqual(inspect.ismethod(self.magnet.undo_bdes), True)
-        self.assertEqual(inspect.ismethod(self.magnet.dac_zero), True)
-        self.assertEqual(inspect.ismethod(self.magnet.calibrate), True)
-        self.assertEqual(inspect.ismethod(self.magnet.standardize), True)
-        self.assertEqual(inspect.ismethod(self.magnet.reset), True)
-        self.assertEqual(inspect.ismethod(self.magnet.turn_off), True)
-        self.assertEqual(inspect.ismethod(self.magnet.turn_on), True)
-        self.assertEqual(inspect.ismethod(self.magnet.degauss), True)
-        self.assertEqual(inspect.ismethod(self.magnet.add_callback_to_pv), True)
-        self.assertEqual(inspect.ismethod(self.magnet.remove_callback_from_pv), True)
+        assert inspect.ismethod(magnet.trim)
+        assert inspect.ismethod(magnet.perturb)
+        assert inspect.ismethod(magnet.con_to_des)
+        assert inspect.ismethod(magnet.save_bdes)
+        assert inspect.ismethod(magnet.load_bdes)
+        assert inspect.ismethod(magnet.undo_bdes)
+        assert inspect.ismethod(magnet.dac_zero)
+        assert inspect.ismethod(magnet.calibrate)
+        assert inspect.ismethod(magnet.standardize)
+        assert inspect.ismethod(magnet.reset)
+        assert inspect.ismethod(magnet.turn_off)
+        assert inspect.ismethod(magnet.turn_on)
+        assert inspect.ismethod(magnet.degauss)
+        assert inspect.ismethod(magnet.add_callback_to_pv)
+        assert inspect.ismethod(magnet.remove_callback_from_pv)
 
-    def test_name(self) -> None:
+    def test_name(self, magnet) -> None:
         """Test we get expected default"""
-        self.assertEqual(self.magnet.name, "SOL1B")
+        assert magnet.name == "SOL1B"
 
-    def test_ctrl_options_are_lazy_loaded(self) -> None:
+    def test_ctrl_options_are_lazy_loaded(self, magnet, mock_ctrlvars) -> None:
         # mock_ctrl_options patches epics.PV.get_ctrlvars; accessing
         # ctrl_options for the first time should trigger exactly one call
         # to get_ctrlvars(timeout=1).
-        self.mock_ctrl_options.assert_not_called()
-        _ = self.magnet.ctrl_options
-        self.mock_ctrl_options.assert_called_once_with(timeout=1)
+        mock_ctrlvars.assert_not_called()
+        _ = magnet.ctrl_options
+        mock_ctrlvars.assert_called_once_with(timeout=1)
 
-    def test_tol(self) -> None:
+    def test_tol(self, magnet) -> None:
         """Test tol float validation"""
-        self.assertIsNone(self.magnet.b_tolerance)
-        self.magnet.b_tolerance = "a"
-        self.assertIsNone(self.magnet.b_tolerance)
-        self.magnet.b_tolerance = 1
-        self.assertIsNone(self.magnet.b_tolerance)
-        self.magnet.b_tolerance = 0.1
-        self.assertEqual(self.magnet.b_tolerance, 0.1)
+        assert magnet.b_tolerance is None
+        magnet.b_tolerance = "a"
+        assert magnet.b_tolerance is None
+        magnet.b_tolerance = 1
+        assert magnet.b_tolerance is None
+        magnet.b_tolerance = 0.1
+        assert magnet.b_tolerance == 0.1
 
-    def test_length(self) -> None:
+    def test_length(self, magnet) -> None:
         """Test effective length float validation"""
         # SOL1B -> l_eff: 0.086
-        self.assertEqual(self.magnet.l_eff, 0.086)
+        assert magnet.l_eff == 0.086
         # might need validate_assignment = True in magnet class
-        # with self.assertRaises(ValidationError):
-        # self.magnet.l_eff = "a"
+        # with pytest.raises(ValidationError):
+        # magnet.l_eff = "a"
         # some trouble with this.... need to change config later. its not forcing
         # revalidation after reassignment since type is optional I believe.
-        self.magnet.l_eff = 1.0
-        self.assertEqual(self.magnet.l_eff, 1.0)
-        self.magnet.l_eff = 0.05
-        self.assertEqual(self.magnet.l_eff, 0.05)
+        magnet.l_eff = 1.0
+        assert magnet.l_eff == 1.0
+        magnet.l_eff = 0.05
+        assert magnet.l_eff == 0.05
 
     @patch("epics.PV.get", new_callable=Mock)
-    def test_bact(self, mock_pv_get) -> None:
+    def test_bact(self, mock_pv_get, magnet) -> None:
         mock_pv_get.return_value = 0.1
-        self.assertEqual(self.magnet.bact, 0.1)
+        assert magnet.bact == 0.1
         mock_pv_get.assert_called_once()
 
     @patch("epics.PV.get", new_callable=Mock)
-    def test_bdes(self, mock_pv_get) -> None:
+    def test_bdes(self, mock_pv_get, magnet) -> None:
         mock_pv_get.return_value = 0.5
-        self.assertEqual(self.magnet.bdes, 0.5)
+        assert magnet.bdes == 0.5
         mock_pv_get.assert_called_once()
 
     @patch("epics.PV.put", new_callable=Mock)
-    def test_set_bdes(self, mock_pv_put) -> None:
+    def test_set_bdes(self, mock_pv_put, magnet) -> None:
         mock_pv_put.return_value = None
-        self.magnet.bdes = 0.1
+        magnet.bdes = 0.1
         mock_pv_put.assert_called_once_with(value=0.1, wait=True)
 
     @patch("epics.PV.get", new_callable=Mock)
-    def test_get_bctrl(self, mock_pv_get) -> None:
+    def test_get_bctrl(self, mock_pv_get, magnet) -> None:
         mock_pv_get.return_value = 0.5
-        self.assertEqual(self.magnet.bctrl, 0.5)
+        assert magnet.bctrl == 0.5
         mock_pv_get.assert_called_once()
 
     @patch("epics.PV.put", new_callable=Mock)
@@ -187,9 +188,10 @@ class MagnetTest(TestCase):
         self,
         mock_ctrl_option,
         mock_pv_put,
+        magnet,
     ) -> None:
         mock_ctrl_option.return_value = "Ready"
-        self.magnet.bctrl = 3
+        magnet.bctrl = 3
         mock_pv_put.assert_called_once_with(value=3)
 
     @patch("epics.PV.put", new_callable=Mock)
@@ -201,9 +203,10 @@ class MagnetTest(TestCase):
         self,
         mock_ctrl_option,
         mock_pv_put,
+        magnet,
     ) -> None:
         mock_ctrl_option.return_value = "Ready"
-        self.magnet.bctrl = "string"
+        magnet.bctrl = "string"
         mock_pv_put.assert_not_called()
 
     @patch("epics.PV.put", new_callable=Mock)
@@ -215,16 +218,17 @@ class MagnetTest(TestCase):
         self,
         mock_ctrl_option,
         mock_pv_put,
+        magnet,
     ) -> None:
         mock_ctrl_option.return_value = "Trim"
-        self.magnet.bctrl = 5
+        magnet.bctrl = 5
         mock_pv_put.assert_not_called()
 
     @patch("epics.PV.get", new_callable=Mock)
-    def test_get_ctrl_calls_pv_get(self, pv_get_mock) -> None:
+    def test_get_ctrl_calls_pv_get(self, pv_get_mock, magnet) -> None:
         pv_get_mock.return_value = "Ready"
-        value = self.magnet.ctrl
-        self.assertEqual(value, "Ready")
+        value = magnet.ctrl
+        assert value == "Ready"
         pv_get_mock.assert_called_once_with(as_string=True)
 
     @patch("epics.PV.put", new_callable=Mock)
@@ -233,15 +237,20 @@ class MagnetTest(TestCase):
         new_callable=PropertyMock,
     )
     def test_control_functions_call_pv_put_if_ready(
-        self, mock_ctrl_option, pv_put_mock
+        self,
+        mock_ctrl_option,
+        pv_put_mock,
+        magnet,
+        mock_ctrlvars,
+        control_functions,
     ) -> None:
         mock_ctrl_option.return_value = "Ready"
-        self.mock_ctrl_options.return_value = {
-            "enum_strs": tuple(self.options_and_getter_function.keys()),
+        mock_ctrlvars.return_value = {
+            "enum_strs": tuple(control_functions.keys()),
         }
-        for option, func in self.options_and_getter_function.items():
+        for option, func in control_functions.items():
             func()
-            pv_put_mock.assert_called_once_with(self.magnet.ctrl_options[option])
+            pv_put_mock.assert_called_once_with(magnet.ctrl_options[option])
             pv_put_mock.reset_mock()
 
     @patch("epics.PV.put", new_callable=Mock)
@@ -250,19 +259,24 @@ class MagnetTest(TestCase):
         new_callable=PropertyMock,
     )
     def test_control_functions_that_do_nothing_if_not_ready(
-        self, mock_ctrl, pv_put_mock
+        self,
+        mock_ctrl,
+        pv_put_mock,
+        magnet,
+        mock_ctrlvars,
+        control_functions,
     ) -> None:
         mock_ctrl.return_value = "Not Ready"
-        self.mock_ctrl_options.return_value = {
-            "enum_strs": tuple(self.options_and_getter_function.keys()),
+        mock_ctrlvars.return_value = {
+            "enum_strs": tuple(control_functions.keys()),
         }
 
-        for option, func in self.options_and_getter_function.items():
+        for option, func in control_functions.items():
             func()
-            if option in self.options_requiring_state_check:
+            if option in OPTIONS_REQUIRING_STATE_CHECK:
                 pv_put_mock.assert_not_called()
             else:
-                pv_put_mock.assert_called_once_with(self.magnet.ctrl_options[option])
+                pv_put_mock.assert_called_once_with(magnet.ctrl_options[option])
             pv_put_mock.reset_mock()
 
     @patch(
@@ -273,10 +287,10 @@ class MagnetTest(TestCase):
         "slac_devices.magnet.Magnet.bact",
         new_callable=PropertyMock,
     )
-    def test_bact_is_settled(self, mock_bact, mock_bdes) -> None:
+    def test_bact_is_settled(self, mock_bact, mock_bdes, magnet) -> None:
         mock_bact.return_value = 0.001
         mock_bdes.return_value = 0.0009
-        self.assertTrue(self.magnet.is_bact_settled(b_tolerance=0.0002))
+        assert magnet.is_bact_settled(b_tolerance=0.0002)
 
     @patch(
         "slac_devices.magnet.Magnet.bdes",
@@ -286,10 +300,10 @@ class MagnetTest(TestCase):
         "slac_devices.magnet.Magnet.bact",
         new_callable=PropertyMock,
     )
-    def test_bact_is_not_settled(self, mock_bact, mock_bdes) -> None:
+    def test_bact_is_not_settled(self, mock_bact, mock_bdes, magnet) -> None:
         mock_bact.return_value = 0.001
         mock_bdes.return_value = 0.01
-        self.assertFalse(self.magnet.is_bact_settled(b_tolerance=0.001))
+        assert not magnet.is_bact_settled(b_tolerance=0.001)
 
     @patch("epics.PV.put", new_callable=Mock)
     @patch(
@@ -301,7 +315,11 @@ class MagnetTest(TestCase):
         new_callable=PropertyMock,
     )
     def test_nothing_happens_if_ctrl_option_is_not_available(
-        self, mock_ctrl_options, mock_ctrl, mock_put
+        self,
+        mock_ctrl_options,
+        mock_ctrl,
+        mock_put,
+        control_functions,
     ) -> None:
         # we now replace to all-test-case-mock that has ALL ctrl options
         # to only have 'Ready' options
@@ -309,53 +327,29 @@ class MagnetTest(TestCase):
             "enum_strs": tuple("Ready"),
         }
         mock_ctrl.return_value = "Ready"
-        for _, function in self.options_and_getter_function.items():
+        for _, function in control_functions.items():
             function()
             mock_put.assert_not_called()
             mock_put.reset_mock()
 
 
-class MagnetCollectionTest(TestCase):
-    def setUp(self) -> None:
-        self.options = [
-            "TRIM",
-            "PERTURB",
-            "BCON_TO_BDES",
-            "SAVE_BDES",
-            "LOAD_BDES",
-            "UNDO_BDES",
-            "DAC_ZERO",
-            "CALIB",
-            "STDZ",
-            "RESET",
-            "TURN_OFF",
-            "TURN_ON",
-            "DEGAUSS",
-        ]
-        self.ctrl_options_patch = patch("epics.PV.get_ctrlvars", new_callable=Mock)
-        self.mock_ctrl_options = self.ctrl_options_patch.start()
-        self.mock_ctrl_options.return_value = {"enum_strs": tuple(self.options)}
-        self.magnet_collection = create_magnet(area="GUNB")
-        return super().setUp()
+class TestMagnetCollection:
+    def test_magnet_collection_creation(self, magnet_collection) -> None:
+        assert isinstance(magnet_collection, MagnetCollection)
 
-    def test_magnet_collection_creation(self) -> None:
-        self.assertIsInstance(self.magnet_collection, MagnetCollection)
-
-    def test_seconds_since(self) -> None:
+    def test_seconds_since(self, magnet_collection) -> None:
         one_second_in_the_past = datetime.datetime.now() - datetime.timedelta(seconds=1)
-        time_passed = self.magnet_collection._seconds_since(
+        time_passed = magnet_collection._seconds_since(
             time_to_check=one_second_in_the_past
         )
-        self.assertEqual(
-            time_passed,
-            1,
-            msg=f"Expected 1s passed, got {time_passed}s",
-        )
+        assert time_passed == 1, f"Expected 1s passed, got {time_passed}s"
 
-    def test_seconds_since_throws_if_given_non_datetime_arg(self) -> None:
+    def test_seconds_since_throws_if_given_non_datetime_arg(
+        self, magnet_collection
+    ) -> None:
         time_to_check = 1000
-        with self.assertRaises(TypeError):
-            self.magnet_collection._seconds_since(time_to_check=time_to_check)
+        with pytest.raises(TypeError):
+            magnet_collection._seconds_since(time_to_check=time_to_check)
 
     @patch(
         "slac_devices.magnet.Magnet.is_bact_settled",
@@ -374,10 +368,11 @@ class MagnetCollectionTest(TestCase):
         mock_trim,
         mock_bdes,
         mock_bact_settle,
+        magnet_collection,
     ) -> None:
-        with self.assertRaises(TypeError):
-            self.magnet_collection.set_bdes()
-        self.magnet_collection.set_bdes(magnet_dict={})
+        with pytest.raises(TypeError):
+            magnet_collection.set_bdes()
+        magnet_collection.set_bdes(magnet_dict={})
         mock_bdes.assert_not_called()
         mock_trim.assert_not_called()
         mock_bact_settle.assert_not_called()
@@ -393,12 +388,13 @@ class MagnetCollectionTest(TestCase):
         mock_trim,
         mock_bdes_put,
         mock_bact_settled,
+        magnet_collection,
     ) -> None:
         bdes_settings = {
             "SOL1B": 0.1,
         }
         mock_bact_settled.return_value = True
-        self.magnet_collection.set_bdes(magnet_dict=bdes_settings)
+        magnet_collection.set_bdes(magnet_dict=bdes_settings)
         mock_bdes_put.assert_called_once_with(value=0.1, wait=True)
         mock_trim.assert_called_once()
         mock_bact_settled.assert_called_once_with()
@@ -410,12 +406,16 @@ class MagnetCollectionTest(TestCase):
     @patch("epics.PV.put", new_callable=Mock)
     @patch("slac_devices.magnet.Magnet.trim", new_callable=Mock)
     def test_set_bdes_with_bad_magnet_name(
-        self, mock_trim, mock_bdes_put, mock_bact_settled
+        self,
+        mock_trim,
+        mock_bdes_put,
+        mock_bact_settled,
+        magnet_collection,
     ) -> None:
         bdes_settings = {
             "BAD-MAG": 0.3,
         }
-        self.magnet_collection.set_bdes(magnet_dict=bdes_settings)
+        magnet_collection.set_bdes(magnet_dict=bdes_settings)
         mock_bdes_put.assert_not_called()
         mock_trim.assert_not_called()
         mock_bact_settled.assert_not_called()
@@ -431,6 +431,7 @@ class MagnetCollectionTest(TestCase):
         mock_trim,
         mock_put,
         mock_bact_settle,
+        magnet_collection,
     ) -> None:
         settings = [
             {
@@ -444,10 +445,10 @@ class MagnetCollectionTest(TestCase):
             },
         ]
         mock_bact_settle.return_value = True
-        self.magnet_collection.scan(scan_settings=settings)
-        self.assertEqual(mock_put.call_count, 3)
-        self.assertEqual(mock_trim.call_count, 3)
-        self.assertEqual(mock_bact_settle.call_count, 3)
+        magnet_collection.scan(scan_settings=settings)
+        assert mock_put.call_count == 3
+        assert mock_trim.call_count == 3
+        assert mock_bact_settle.call_count == 3
 
     @patch(
         "slac_devices.magnet.Magnet.is_bact_settled",
@@ -460,6 +461,7 @@ class MagnetCollectionTest(TestCase):
         mock_trim,
         mock_put,
         mock_bact_settle,
+        magnet_collection,
     ) -> None:
         mock_daq_function = Mock()
         settings = [
@@ -474,11 +476,11 @@ class MagnetCollectionTest(TestCase):
             },
         ]
         mock_bact_settle.return_value = True
-        self.magnet_collection.scan(scan_settings=settings, function=mock_daq_function)
-        self.assertEqual(mock_put.call_count, 3)
-        self.assertEqual(mock_trim.call_count, 3)
-        self.assertEqual(mock_bact_settle.call_count, 3)
-        self.assertEqual(mock_daq_function.call_count, 3)
+        magnet_collection.scan(scan_settings=settings, function=mock_daq_function)
+        assert mock_put.call_count == 3
+        assert mock_trim.call_count == 3
+        assert mock_bact_settle.call_count == 3
+        assert mock_daq_function.call_count == 3
 
     @patch(
         "slac_devices.magnet.Magnet.is_bact_settled",
@@ -491,7 +493,12 @@ class MagnetCollectionTest(TestCase):
         new_callable=Mock,
     )
     def test_set_bdes_when_timeout_happens(
-        self, mock_timer_count, mock_trim, mock_put, mock_bact_settle
+        self,
+        mock_timer_count,
+        mock_trim,
+        mock_put,
+        mock_bact_settle,
+        magnet_collection,
     ) -> None:
         # make sure that magnet_collection._seconds_since()
         # always returns > settle_timeout for set_bdes()
@@ -502,12 +509,12 @@ class MagnetCollectionTest(TestCase):
             "SOL1B": 0.1,
             "SOL2B": 0.1,
         }
-        self.magnet_collection.set_bdes(settings)
+        magnet_collection.set_bdes(settings)
         # We call functions once per-setting
         # but we ALWAYS timeout so we only call twice overall.
-        self.assertEqual(mock_put.call_count, 2)
-        self.assertEqual(mock_trim.call_count, 2)
-        self.assertEqual(mock_bact_settle.call_count, 2)
+        assert mock_put.call_count == 2
+        assert mock_trim.call_count == 2
+        assert mock_bact_settle.call_count == 2
 
     @patch(
         "slac_devices.magnet.Magnet.is_bact_settled",
@@ -520,7 +527,12 @@ class MagnetCollectionTest(TestCase):
         new_callable=Mock,
     )
     def test_set_bdes_when_timeout_happens_after_first_call(
-        self, mock_timer_count, mock_trim, mock_put, mock_bact_settle
+        self,
+        mock_timer_count,
+        mock_trim,
+        mock_put,
+        mock_bact_settle,
+        magnet_collection,
     ) -> None:
         # make sure that magnet_collection._seconds_since()
         # always returns > settle_timeout for set_bdes()
@@ -530,95 +542,95 @@ class MagnetCollectionTest(TestCase):
         settings = {
             "SOL1B": 0.1,
         }
-        self.magnet_collection.set_bdes(settings)
+        magnet_collection.set_bdes(settings)
         # We call functions once per-setting
         # but we ALWAYS timeout so we only call once overall.
-        self.assertEqual(mock_put.call_count, 1)
-        self.assertEqual(mock_trim.call_count, 1)
+        assert mock_put.call_count == 1
+        assert mock_trim.call_count == 1
         # We will call the bact_settle function 3 times
         # 1st (0 + 4 secs) !>  5, 2nd (1 + 4 secs) !> 5, 3rd (2 + 4secs) > 5
-        self.assertEqual(mock_bact_settle.call_count, 3)
+        assert mock_bact_settle.call_count == 3
 
     @patch("slac_devices.magnet.Magnet.turn_off", new_callable=Mock)
-    def test_turn_off_single_magnet(self, mock_turn_off):
+    def test_turn_off_single_magnet(self, mock_turn_off, magnet_collection):
         magnet_name = "SOL1B"
-        self.magnet_collection.turn_off(magnet_name)
+        magnet_collection.turn_off(magnet_name)
         mock_turn_off.assert_called_once()
 
     @patch("slac_devices.magnet.Magnet.turn_off", new_callable=Mock)
-    def test_turn_off_multiple_magnets(self, mock_turn_off):
+    def test_turn_off_multiple_magnets(self, mock_turn_off, magnet_collection):
         magnet_names = ["SOL1B", "SOL2B"]
-        self.magnet_collection.turn_off(magnet_names)
-        self.assertEqual(mock_turn_off.call_count, 2)
+        magnet_collection.turn_off(magnet_names)
+        assert mock_turn_off.call_count == 2
 
     @patch("slac_devices.magnet.Magnet.turn_off", new_callable=Mock)
-    def test_turn_off_all_magnets(self, mock_turn_off):
-        self.magnet_collection.turn_off()
-        total_number_of_magnets = len(self.magnet_collection.magnets)
-        self.assertEqual(mock_turn_off.call_count, total_number_of_magnets)
+    def test_turn_off_all_magnets(self, mock_turn_off, magnet_collection):
+        magnet_collection.turn_off()
+        total_number_of_magnets = len(magnet_collection.magnets)
+        assert mock_turn_off.call_count == total_number_of_magnets
 
     @patch("slac_devices.magnet.Magnet.turn_off", new_callable=Mock)
-    def test_turn_off_bad_magnet(self, mock_turn_off):
+    def test_turn_off_bad_magnet(self, mock_turn_off, magnet_collection):
         magnet_name = "BAD-MAGNET"
-        self.magnet_collection.turn_off(magnet_name)
+        magnet_collection.turn_off(magnet_name)
         mock_turn_off.assert_not_called()
 
     @patch("slac_devices.magnet.Magnet.turn_on", new_callable=Mock)
-    def test_turn_on_single_magnet(self, mock_turn_on):
+    def test_turn_on_single_magnet(self, mock_turn_on, magnet_collection):
         magnet_name = "SOL1B"
-        self.magnet_collection.turn_on(magnet_name)
+        magnet_collection.turn_on(magnet_name)
         mock_turn_on.assert_called_once()
 
     @patch("slac_devices.magnet.Magnet.turn_on", new_callable=Mock)
-    def test_turn_on_multiple_magnets(self, mock_turn_on):
+    def test_turn_on_multiple_magnets(self, mock_turn_on, magnet_collection):
         magnet_names = ["SOL1B", "SOL2B"]
-        self.magnet_collection.turn_on(magnet_names)
-        self.assertEqual(mock_turn_on.call_count, 2)
+        magnet_collection.turn_on(magnet_names)
+        assert mock_turn_on.call_count == 2
 
     @patch("slac_devices.magnet.Magnet.turn_on", new_callable=Mock)
-    def test_turn_on_all_magnets(self, mock_turn_on):
-        self.magnet_collection.turn_on()
-        total_number_of_magnets = len(self.magnet_collection.magnets)
-        self.assertEqual(mock_turn_on.call_count, total_number_of_magnets)
+    def test_turn_on_all_magnets(self, mock_turn_on, magnet_collection):
+        magnet_collection.turn_on()
+        total_number_of_magnets = len(magnet_collection.magnets)
+        assert mock_turn_on.call_count == total_number_of_magnets
 
     @patch("slac_devices.magnet.Magnet.turn_on", new_callable=Mock)
-    def test_turn_on_bad_magnet(self, mock_turn_on):
+    def test_turn_on_bad_magnet(self, mock_turn_on, magnet_collection):
         magnet_name = "BAD-MAGNET"
-        self.magnet_collection.turn_on(magnet_name)
+        magnet_collection.turn_on(magnet_name)
         mock_turn_on.assert_not_called()
 
     @patch("slac_devices.magnet.Magnet.turn_on", new_callable=Mock)
-    def test_degauss_single_magnet(self, mock_turn_on):
+    def test_degauss_single_magnet(self, mock_turn_on, magnet_collection):
         magnet_name = "SOL1B"
-        self.magnet_collection.turn_on(magnet_name)
+        magnet_collection.turn_on(magnet_name)
         mock_turn_on.assert_called_once()
 
     @patch("slac_devices.magnet.Magnet.degauss", new_callable=Mock)
-    def test_degauss_multiple_magnets(self, mock_degauss):
+    def test_degauss_multiple_magnets(self, mock_degauss, magnet_collection):
         magnet_names = ["SOL1B", "SOL2B"]
-        self.magnet_collection.degauss(magnet_names)
-        self.assertEqual(mock_degauss.call_count, 2)
+        magnet_collection.degauss(magnet_names)
+        assert mock_degauss.call_count == 2
 
     @patch("slac_devices.magnet.Magnet.degauss", new_callable=Mock)
-    def test_degauss_all_magnets(self, mock_degauss):
-        self.magnet_collection.degauss()
-        total_number_of_magnets = len(self.magnet_collection.magnets)
-        self.assertEqual(mock_degauss.call_count, total_number_of_magnets)
+    def test_degauss_all_magnets(self, mock_degauss, magnet_collection):
+        magnet_collection.degauss()
+        total_number_of_magnets = len(magnet_collection.magnets)
+        assert mock_degauss.call_count == total_number_of_magnets
 
     @patch("slac_devices.magnet.Magnet.degauss", new_callable=Mock)
-    def test_degauss_bad_magnet(self, mock_degauss):
+    def test_degauss_bad_magnet(self, mock_degauss, magnet_collection):
         magnet_name = "BAD-MAGNET"
-        self.magnet_collection.degauss(magnet_name)
+        magnet_collection.degauss(magnet_name)
         mock_degauss.assert_not_called()
 
-    def test_serialization(self):
-        magnet = self.magnet_collection.magnets["CQ01B"]
+    def test_serialization(self, magnet_collection):
+        magnet = magnet_collection.magnets["CQ01B"]
         info = magnet.model_dump()
-        self.assertEqual(
-            info["controls_information"]["PVs"]["bctrl"],
-            magnet.controls_information.PVs.bctrl.pvname,
+        assert (
+            info["controls_information"]["PVs"]["bctrl"]
+            == magnet.controls_information.PVs.bctrl.pvname
         )
 
         # create magnet from info dict
         new_magnet = Magnet(**info)
-        self.assertEqual(magnet, new_magnet)
+        assert magnet == new_magnet

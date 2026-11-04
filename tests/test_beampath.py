@@ -1,5 +1,6 @@
-import unittest
-from unittest.mock import patch, MagicMock
+from unittest.mock import MagicMock
+
+import pytest
 
 from slac_devices.beampath import Beampath
 from slac_devices.area import Area
@@ -9,15 +10,21 @@ from slac_devices.wire import Wire, WireCollection
 from slac_devices.bpm import BPM, BPMCollection
 
 
-class TestBeampathRepr(unittest.TestCase):
+@pytest.fixture
+def ctrlvars_ready(mock_ctrlvars):
+    mock_ctrlvars.return_value = {"enum_strs": tuple("READY")}
+    return mock_ctrlvars
+
+
+class TestBeampathRepr:
     """Test Beampath __repr__ method."""
 
     def test_beampath_repr_empty_areas(self):
         """Test __repr__ for beampath with no areas."""
         bp = Beampath.model_construct(name="TEST_BP", areas=None)
         repr_str = repr(bp)
-        self.assertIn("TEST_BP", repr_str)
-        self.assertIn("areas=[]", repr_str)
+        assert "TEST_BP" in repr_str
+        assert "areas=[]" in repr_str
 
     def test_beampath_repr_with_areas(self):
         """Test __repr__ shows area info and device counts."""
@@ -29,29 +36,21 @@ class TestBeampathRepr(unittest.TestCase):
         bp = Beampath.model_construct(name="TEST_BP", areas={"AREA1": area})
         repr_str = repr(bp)
 
-        self.assertIn("TEST_BP", repr_str)
-        self.assertIn("num_areas", repr_str)
-        self.assertIn("total_devices", repr_str)
-        self.assertIn("populated_types", repr_str)
+        assert "TEST_BP" in repr_str
+        assert "num_areas" in repr_str
+        assert "total_devices" in repr_str
+        assert "populated_types" in repr_str
 
 
-class TestBeampathDeviceCounts(unittest.TestCase):
+@pytest.mark.usefixtures("ctrlvars_ready")
+class TestBeampathDeviceCounts:
     """Test Beampath device counting."""
-
-    def setUp(self):
-        """Set up test fixtures."""
-        self.mock_magnet_pv_patch = patch("epics.PV.get_ctrlvars")
-        self.mock_ctrl = self.mock_magnet_pv_patch.start()
-        self.mock_ctrl.return_value = {"enum_strs": tuple("READY")}
-
-    def tearDown(self):
-        self.mock_magnet_pv_patch.stop()
 
     def test_device_counts_empty_beampath(self):
         """Test _device_counts for empty beampath."""
         bp = Beampath.model_construct(name="EMPTY_BP", areas=None)
         counts = bp._device_counts()
-        self.assertEqual(sum(counts.values()), 0)
+        assert sum(counts.values()) == 0
 
     def test_device_counts_aggregates_across_areas(self):
         """Test _device_counts sums devices from all areas."""
@@ -73,20 +72,12 @@ class TestBeampathDeviceCounts(unittest.TestCase):
         )
 
         counts = bp._device_counts()
-        self.assertEqual(counts["magnets"], 3)
+        assert counts["magnets"] == 3
 
 
-class TestBeampathFindDevice(unittest.TestCase):
+@pytest.mark.usefixtures("ctrlvars_ready")
+class TestBeampathFindDevice:
     """Test Beampath device finding."""
-
-    def setUp(self):
-        """Set up test fixtures."""
-        self.mock_magnet_pv_patch = patch("epics.PV.get_ctrlvars")
-        self.mock_ctrl = self.mock_magnet_pv_patch.start()
-        self.mock_ctrl.return_value = {"enum_strs": tuple("READY")}
-
-    def tearDown(self):
-        self.mock_magnet_pv_patch.stop()
 
     def test_find_device_not_found(self):
         """Test find_device returns None when device doesn't exist."""
@@ -99,7 +90,7 @@ class TestBeampathFindDevice(unittest.TestCase):
         bp = Beampath.model_construct(name="TEST_BP", areas={"AREA1": area})
 
         result = bp.find_device("NONEXISTENT")
-        self.assertIsNone(result)
+        assert result is None
 
     def test_find_device_in_single_area(self):
         """Test find_device returns correct area and device."""
@@ -114,10 +105,10 @@ class TestBeampathFindDevice(unittest.TestCase):
         bp = Beampath.model_construct(name="TEST_BP", areas={"AREA1": area})
 
         result = bp.find_device("M1")
-        self.assertIsNotNone(result)
-        self.assertEqual(result[0], "AREA1")  # area name
-        self.assertEqual(result[1], "magnets")  # device type
-        self.assertEqual(result[2], mock_magnet)  # device object
+        assert result is not None
+        assert result[0] == "AREA1"  # area name
+        assert result[1] == "magnets"  # device type
+        assert result[2] == mock_magnet  # device object
 
     def test_find_device_in_multiple_areas(self):
         """Test find_device finds correct device in multi-area beampath."""
@@ -144,28 +135,20 @@ class TestBeampathFindDevice(unittest.TestCase):
         )
 
         result = bp.find_device("S1")
-        self.assertIsNotNone(result)
-        self.assertEqual(result[0], "AREA2")
-        self.assertEqual(result[1], "screens")
+        assert result is not None
+        assert result[0] == "AREA2"
+        assert result[1] == "screens"
 
     def test_find_device_no_configured_areas(self):
         """Test find_device returns None gracefully when areas is None."""
         bp = Beampath(name="UNCONFIGURED")  # areas defaults to None
         result = bp.find_device("SOMETHING")
-        self.assertIsNone(result)
+        assert result is None
 
 
-class TestBeampathAggregationMethods(unittest.TestCase):
+@pytest.mark.usefixtures("ctrlvars_ready")
+class TestBeampathAggregationMethods:
     """Test Beampath aggregation methods like get_all_magnets."""
-
-    def setUp(self):
-        """Set up test fixtures."""
-        self.mock_magnet_pv_patch = patch("epics.PV.get_ctrlvars")
-        self.mock_ctrl = self.mock_magnet_pv_patch.start()
-        self.mock_ctrl.return_value = {"enum_strs": tuple("READY")}
-
-    def tearDown(self):
-        self.mock_magnet_pv_patch.stop()
 
     def test_get_all_magnets_empty(self):
         """Test get_all_magnets with no magnets."""
@@ -173,7 +156,7 @@ class TestBeampathAggregationMethods(unittest.TestCase):
         bp = Beampath.model_construct(name="TEST_BP", areas={"AREA1": area})
 
         magnets = bp.get_all_magnets()
-        self.assertEqual(len(magnets), 0)
+        assert len(magnets) == 0
 
     def test_get_all_magnets_single_area(self):
         """Test get_all_magnets from single area."""
@@ -188,9 +171,9 @@ class TestBeampathAggregationMethods(unittest.TestCase):
         bp = Beampath.model_construct(name="TEST_BP", areas={"AREA1": area})
 
         magnets = bp.get_all_magnets()
-        self.assertEqual(len(magnets), 2)
-        self.assertIn("M1", magnets)
-        self.assertIn("M2", magnets)
+        assert len(magnets) == 2
+        assert "M1" in magnets
+        assert "M2" in magnets
 
     def test_get_all_magnets_multiple_areas(self):
         """Test get_all_magnets aggregates across areas."""
@@ -215,10 +198,10 @@ class TestBeampathAggregationMethods(unittest.TestCase):
         )
 
         magnets = bp.get_all_magnets()
-        self.assertEqual(len(magnets), 3)
-        self.assertIn("M1", magnets)
-        self.assertIn("M2", magnets)
-        self.assertIn("M3", magnets)
+        assert len(magnets) == 3
+        assert "M1" in magnets
+        assert "M2" in magnets
+        assert "M3" in magnets
 
     def test_get_all_wires(self):
         """Test get_all_wires aggregation."""
@@ -238,9 +221,9 @@ class TestBeampathAggregationMethods(unittest.TestCase):
         )
 
         wires = bp.get_all_wires()
-        self.assertEqual(len(wires), 2)
-        self.assertIn("W1", wires)
-        self.assertIn("W2", wires)
+        assert len(wires) == 2
+        assert "W1" in wires
+        assert "W2" in wires
 
     def test_get_all_bpms(self):
         """Test get_all_bpms aggregation."""
@@ -253,8 +236,8 @@ class TestBeampathAggregationMethods(unittest.TestCase):
         bp = Beampath.model_construct(name="TEST_BP", areas={"AREA1": area})
 
         bpms = bp.get_all_bpms()
-        self.assertEqual(len(bpms), 1)
-        self.assertIn("B1", bpms)
+        assert len(bpms) == 1
+        assert "B1" in bpms
 
     def test_get_all_devices(self):
         """Test get_all_devices aggregates all device types."""
@@ -275,23 +258,15 @@ class TestBeampathAggregationMethods(unittest.TestCase):
         bp = Beampath.model_construct(name="TEST_BP", areas={"AREA1": area})
 
         all_devices = bp.get_all_devices()
-        self.assertEqual(len(all_devices), 3)
-        self.assertIn("M1", all_devices)
-        self.assertIn("W1", all_devices)
-        self.assertIn("S1", all_devices)
+        assert len(all_devices) == 3
+        assert "M1" in all_devices
+        assert "W1" in all_devices
+        assert "S1" in all_devices
 
 
-class TestBeampathProperties(unittest.TestCase):
+@pytest.mark.usefixtures("ctrlvars_ready")
+class TestBeampathProperties:
     """Test Beampath properties (aliases for get_all_* methods)."""
-
-    def setUp(self):
-        """Set up test fixtures."""
-        self.mock_magnet_pv_patch = patch("epics.PV.get_ctrlvars")
-        self.mock_ctrl = self.mock_magnet_pv_patch.start()
-        self.mock_ctrl.return_value = {"enum_strs": tuple("READY")}
-
-    def tearDown(self):
-        self.mock_magnet_pv_patch.stop()
 
     def test_all_magnets_property(self):
         """Test magnets property."""
@@ -305,8 +280,8 @@ class TestBeampathProperties(unittest.TestCase):
         bp = Beampath.model_construct(name="TEST_BP", areas={"AREA1": area})
 
         magnets = bp.magnets
-        self.assertEqual(len(magnets), 1)
-        self.assertIn("M1", magnets)
+        assert len(magnets) == 1
+        assert "M1" in magnets
 
     def test_all_wires_property(self):
         """Test wires property."""
@@ -318,8 +293,8 @@ class TestBeampathProperties(unittest.TestCase):
         bp = Beampath.model_construct(name="TEST_BP", areas={"AREA1": area})
 
         wires = bp.wires
-        self.assertEqual(len(wires), 1)
-        self.assertIn("W1", wires)
+        assert len(wires) == 1
+        assert "W1" in wires
 
     def test_all_devices_property(self):
         """Test devices property."""
@@ -336,10 +311,6 @@ class TestBeampathProperties(unittest.TestCase):
         bp = Beampath.model_construct(name="TEST_BP", areas={"AREA1": area})
 
         all_devices = bp.devices
-        self.assertEqual(len(all_devices), 2)
-        self.assertIn("M1", all_devices)
-        self.assertIn("W1", all_devices)
-
-
-if __name__ == "__main__":
-    unittest.main()
+        assert len(all_devices) == 2
+        assert "M1" in all_devices
+        assert "W1" in all_devices

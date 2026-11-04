@@ -1,56 +1,59 @@
-from slac_devices.reader import create_magnet, create_area
-from slac_devices.magnet import Magnet, MagnetCollection
-from slac_devices.area import Area
-import unittest
-from unittest.mock import patch, MagicMock
 import os
+from unittest.mock import MagicMock, patch
+
+import pytest
+
+from slac_devices.area import Area
+from slac_devices.magnet import Magnet, MagnetCollection
+from slac_devices.reader import create_area, create_magnet
+
+CONFIG_LOCATION = "./tests/datasets/devices/config/magnet/"
+BAD_CONFIG = os.path.join(CONFIG_LOCATION, "bad_magnet.yaml")
 
 
-class TestMagnetReader(unittest.TestCase):
-    def setUp(self) -> None:
-        self.config_location = "./tests/datasets/devices/config/magnet/"
-        self.typical_config = os.path.join(self.config_location, "typical_magnet.yaml")
-        self.bad_config = os.path.join(self.config_location, "bad_magnet.yaml")
-        # set up patch so that each magnet is constructured with ALL ctrl options
-        self.ctrl_options_patch = patch("epics.PV.get_ctrlvars", new_callable=MagicMock)
-        self.mock_ctrl_options = self.ctrl_options_patch.start()
-        self.mock_ctrl_options.return_value = {"enum_strs": tuple("READY")}
-        return super().setUp()
+@pytest.fixture
+def ctrlvars_ready(mock_ctrlvars):
+    """Construct each magnet with ALL ctrl options."""
+    mock_ctrlvars.return_value = {"enum_strs": tuple("READY")}
+    return mock_ctrlvars
 
+
+@pytest.mark.usefixtures("ctrlvars_ready")
+class TestMagnetReader:
     def test_bad_file_location_when_creating_magnet_returns_none(self):
-        self.assertIsNone(create_magnet("bad-area"))
+        assert create_magnet("bad-area") is None
 
     def test_no_file_location_when_creating_magnet_returns_none(self):
-        self.assertIsNone(create_magnet())
+        assert create_magnet() is None
 
     def test_magnet_name_not_in_file_when_creating_magnet_returns_none(self):
-        self.assertIsNone(create_magnet(area="GUNB", name="BAD-MAGNET-NAME"))
+        assert create_magnet(area="GUNB", name="BAD-MAGNET-NAME") is None
 
     @patch(
         "slac_db.get_yaml",
         new_callable=MagicMock(),
     )
     def test_config_with_no_control_information_returns_none(self, mock_get_yaml):
-        mock_get_yaml.return_value = self.bad_config
-        self.assertIsNone(create_magnet(area="GUNX", name="CQ02B"))
+        mock_get_yaml.return_value = BAD_CONFIG
+        assert create_magnet(area="GUNX", name="CQ02B") is None
 
     @patch(
         "slac_db.get_yaml",
         new_callable=MagicMock(),
     )
     def test_config_with_no_metadata_returns_none(self, mock_get_yaml):
-        mock_get_yaml.return_value = self.bad_config
-        self.assertIsNone(create_magnet(area="GUNX", name="SOL1B"))
+        mock_get_yaml.return_value = BAD_CONFIG
+        assert create_magnet(area="GUNX", name="SOL1B") is None
 
     def test_create_magnet_with_only_config_creates_all_magnets(self):
         result = create_magnet(area="GUNB")
-        self.assertIsInstance(result, MagnetCollection)
+        assert isinstance(result, MagnetCollection)
         for name in [
             "SOL2B",
             "SOL1B",
         ]:
-            self.assertIn(name, result.magnets, msg=f"expected {name} in {result}.")
-            self.assertIsInstance(result.magnets[name], Magnet)
+            assert name in result.magnets, f"expected {name} in {result}."
+            assert isinstance(result.magnets[name], Magnet)
 
     def test_create_magnet_with_config_and_name_creates_one_magnet(self):
         name = "SOL1B"
@@ -58,11 +61,11 @@ class TestMagnetReader(unittest.TestCase):
             area="GUNB",
             name=name,
         )
-        self.assertNotIsInstance(result, MagnetCollection)
-        self.assertIsInstance(result, Magnet)
+        assert not isinstance(result, MagnetCollection)
+        assert isinstance(result, Magnet)
 
 
-class TestAreaReader(unittest.TestCase):
+class TestAreaReader:
     def test_create_area_keeps_valid_devices_when_one_is_invalid(self):
         valid_bpm = {
             "controls_information": {
@@ -100,9 +103,9 @@ class TestAreaReader(unittest.TestCase):
             }
             result = create_area(area="DIAG0")
 
-        self.assertIsInstance(result, Area)
-        self.assertIn("GOOD", result.bpms)
-        self.assertNotIn("BAD", result.bpms)
+        assert isinstance(result, Area)
+        assert "GOOD" in result.bpms
+        assert "BAD" not in result.bpms
 
     def test_create_area_returns_area_when_all_devices_invalid(self):
         invalid_bpm = {
@@ -124,8 +127,8 @@ class TestAreaReader(unittest.TestCase):
             }
             result = create_area(area="DIAG0")
 
-        self.assertIsInstance(result, Area)
-        self.assertIsNone(result.bpms)
+        assert isinstance(result, Area)
+        assert result.bpms is None
 
     @patch("epics.PV.get_ctrlvars", new_callable=MagicMock)
     def test_create_area_supports_tcavs(self, mock_get_ctrlvars):
@@ -162,6 +165,6 @@ class TestAreaReader(unittest.TestCase):
             }
             result = create_area(area="LI30")
 
-        self.assertIsInstance(result, Area)
-        self.assertIsNotNone(result.tcavs)
-        self.assertIn("TCAV0", result.tcavs)
+        assert isinstance(result, Area)
+        assert result.tcavs is not None
+        assert "TCAV0" in result.tcavs
