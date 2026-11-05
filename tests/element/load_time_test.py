@@ -2,15 +2,27 @@ import time
 
 from slac_devices import element, reader
 
-_YAML_LOADERS = {
-    "OTRDG02": lambda: reader.create_screen(area="DIAG0", name="OTRDG02"),
-    "WS01": lambda: reader.create_wire(area="DL1", name="WS01"),
+_DEVICES = {
+    "QA11": ("L1", "magnet"),
+    "Q25201": ("L3", "magnet"),
+    "BPM2": ("GUN", "bpm"),
+    "BPMDL1": ("LTUH", "bpm"),
+    "OTRDG02": ("DIAG0", "screen"),
+    "YAGPSI": ("LTUH", "screen"),
+    "WSEMIT2": ("EMIT2", "wire"),
+    "WS31": ("LTUH", "wire"),
+    "IM01": ("GUN", "toroid"),
+    "IM31": ("LTUH", "toroid"),
+    "LBLM00A": ("GUNB", "lblm"),
+    "LBLM30A": ("LTUH", "lblm"),
+    "PMT29150": ("LI29", "pmt"),
+    "PMT122": ("LTUH", "pmt"),
 }
 
 
-def _time_ms(load, repeat=20):
+def _time_ms(load, repeat=10):
     start = time.perf_counter()
-    load()
+    assert load() is not None
     first = time.perf_counter() - start
     start = time.perf_counter()
     for _ in range(repeat):
@@ -21,16 +33,17 @@ def _time_ms(load, repeat=20):
 def test_load_time(capsys):
     """Compare loading a device from YAML with loading it as an element Device.
 
-    Run with ``pytest tests/element/load_time_test.py``. YAML parses the
-    whole area file on every call. Element queries device.sqlite3, paying a
-    one-time database setup on the first load in the process. WS01 currently
-    fails Wire validation from YAML; its time is the parse plus that check.
+    Run with ``pytest tests/element/load_time_test.py``. Two devices per type
+    that load in both styles, from a small and a large area file. YAML parses
+    the whole area file on every call. Element queries device.sqlite3, paying
+    a one-time database setup on the first load in the process.
     """
     rows = []
-    for name, yaml_load in _YAML_LOADERS.items():
-        rows.append((name, "yaml", *_time_ms(yaml_load)))
-        rows.append((name, "element", *_time_ms(lambda: element.Device(name))))
+    for name, (area, kind) in _DEVICES.items():
+        yaml_ms = _time_ms(lambda: getattr(reader, f"create_{kind}")(area=area, name=name))
+        element_ms = _time_ms(lambda: element.Device(name))
+        rows.append((name, area, *yaml_ms, *element_ms))
     with capsys.disabled():
-        print(f"\n{'device':8} {'style':8} {'first ms':>9} {'repeat ms':>10}")
-        for row in rows:
-            print(f"{row[0]:8} {row[1]:8} {row[2]:9.2f} {row[3]:10.2f}")
+        print(f"\n{'device':9} {'area':6} {'yaml first':>11} {'repeat':>7} {'element first':>14} {'repeat':>7}")
+        for r in rows:
+            print(f"{r[0]:9} {r[1]:6} {r[2]:11.2f} {r[3]:7.2f} {r[4]:14.2f} {r[5]:7.2f}")
