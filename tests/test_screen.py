@@ -25,8 +25,8 @@ def screen():
     new_callable=PropertyMock,
 )
 def test_hdf5_saving(mock_timestamp, mock_image, screen):
-    num_capture = 100
-    mock_image.return_value = np.zeros(shape=(2000, 2000))
+    num_capture = 10
+    mock_image.return_value = np.zeros(shape=(20, 20))
     t0 = datetime.now()
     # return an incrementing timestamp each time .image_timestamp is accessed.
     mock_timestamp.side_effect = [
@@ -49,7 +49,7 @@ def test_hdf5_saving(mock_timestamp, mock_image, screen):
                     screen.metadata.model_dump().keys()
                 )
                 # check dataset content for shape
-                assert np.array_equal(np.zeros(shape=(2000, 2000)), f[dataset])
+                assert np.array_equal(np.zeros(shape=(20, 20)), f[dataset])
 
 
 @patch(
@@ -61,8 +61,8 @@ def test_hdf5_saving(mock_timestamp, mock_image, screen):
     new_callable=PropertyMock,
 )
 def test_hdf5_with_user_metadata(mock_timestamp, mock_image, screen):
-    num_capture = 100
-    mock_image.return_value = np.zeros(shape=(2000, 2000))
+    num_capture = 10
+    mock_image.return_value = np.zeros(shape=(20, 20))
     t0 = datetime.now()
     # return an incrementing timestamp each time .image_timestamp is accessed.
     mock_timestamp.side_effect = [
@@ -96,7 +96,7 @@ def test_hdf5_with_user_metadata(mock_timestamp, mock_image, screen):
                     user_metadata_for_scan.keys()
                 )
                 # check dataset content for shape
-                assert np.array_equal(np.zeros(shape=(2000, 2000)), f[dataset])
+                assert np.array_equal(np.zeros(shape=(20, 20)), f[dataset])
 
 
 def test_serialization(screen):

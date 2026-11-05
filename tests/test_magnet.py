@@ -81,12 +81,12 @@ class TestMagnet:
         # Assert that magnet has all auto-generated private attributes
         for handle, _ in magnet.controls_information.PVs:
             assert hasattr(
-                magnet, handle
+                type(magnet), handle
             ), f"expected magnet to have attribute {handle}"
         for item, _ in magnet.metadata:
             if item != "hardware":
                 assert hasattr(
-                    magnet, item
+                    type(magnet), item
                 ), f"expected magnet to have attribute {item}"
         # Assert that magnet has public properties
         for item in [
@@ -99,7 +99,7 @@ class TestMagnet:
             "bmin",
             #    "bdes", # is this somewhere else?
         ]:
-            assert hasattr(magnet, item), f"expected magnet to have attribute {item}"
+            assert hasattr(type(magnet), item), f"expected magnet to have attribute {item}"
 
     def test_methods(self, magnet) -> None:
         """Test that all the methods we expect exist"""
