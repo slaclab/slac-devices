@@ -1,20 +1,34 @@
+import functools
 import time
 
-import slac_db
 import slac_db.config
 
 from slac_devices import element, reader
 
+_COLUMNS = (
+    ("area", "area", 7, "s"),
+    ("device", "device", 10, "s"),
+    ("lines", "lines", 6, "d"),
+    ("kb", "KB", 5, ".1f"),
+    ("yaml_first_ms", "yaml first (ms)", 15, ".2f"),
+    ("yaml_repeat_ms", "yaml repeat (ms)", 16, ".2f"),
+    ("element_first_ms", "element first (ms)", 18, ".2f"),
+    ("element_repeat_ms", "element repeat (ms)", 19, ".2f"),
+)
 
-def _yaml_loader(area, kind, name):
-    return lambda: getattr(reader, f"create_{kind[:-1]}")(area=area, name=name)
+
+def _area_files_by_size():
+    return sorted(slac_db.config.yaml().glob("*.yaml"), key=lambda p: p.stat().st_size)
 
 
 def _first_working_device(area):
-    for kind, devices in (slac_db.get_device(area=area) or {}).items():
+    for kind, devices in slac_db.get_device(area=area).items():
+        create = getattr(reader, f"create_{kind.removesuffix('s')}", None)
+        if create is None:
+            continue
         for name in devices:
-            load = _yaml_loader(area, kind, name)
-            if hasattr(reader, f"create_{kind[:-1]}") and load() is not None:
+            load = functools.partial(create, area=area, name=name)
+            if load() is not None:
                 return name, load
     return None, None
 
@@ -26,7 +40,37 @@ def _time_ms(load, repeat=10):
     start = time.perf_counter()
     for _ in range(repeat):
         load()
-    return first * 1e3, (time.perf_counter() - start) / repeat * 1e3
+    return first * 1000, (time.perf_counter() - start) / repeat * 1000
+
+
+def _measure_area(path):
+    name, yaml_load = _first_working_device(path.stem)
+    if name is None:
+        return None
+    yaml_first, yaml_repeat = _time_ms(yaml_load)
+    element_first, element_repeat = _time_ms(functools.partial(element.Device, name))
+    return {
+        "area": path.stem,
+        "device": name,
+        "lines": len(path.read_text().splitlines()),
+        "kb": path.stat().st_size / 1024,
+        "yaml_first_ms": yaml_first,
+        "yaml_repeat_ms": yaml_repeat,
+        "element_first_ms": element_first,
+        "element_repeat_ms": element_repeat,
+    }
+
+
+def _print_table(rows):
+    print()
+    print(
+        " ".join(
+            title.ljust(width) if fmt == "s" else title.rjust(width)
+            for _, title, width, fmt in _COLUMNS
+        )
+    )
+    for row in rows:
+        print(" ".join(f"{row[key]:{width}{fmt}}" for key, _, width, fmt in _COLUMNS))
 
 
 def test_load_time(capsys):
@@ -38,15 +82,12 @@ def test_load_time(capsys):
     paying a one-time database setup on the first load in the process.
     """
     rows, skipped = [], []
-    for path in sorted(slac_db.config.yaml().glob("*.yaml"), key=lambda p: p.stat().st_size):
-        name, yaml_load = _first_working_device(path.stem)
-        if name is None:
+    for path in _area_files_by_size():
+        row = _measure_area(path)
+        if row is None:
             skipped.append(path.stem)
-            continue
-        size = (len(path.read_text().splitlines()), path.stat().st_size / 1024)
-        rows.append((path.stem, name, *size, *_time_ms(yaml_load), *_time_ms(lambda: element.Device(name))))
+        else:
+            rows.append(row)
     with capsys.disabled():
-        print(f"\n{'area':7} {'device':10} {'lines':>6} {'KB':>5} {'yaml first (ms)':>15} {'repeat (ms)':>11} {'element first (ms)':>18} {'repeat (ms)':>11}")
-        for r in rows:
-            print(f"{r[0]:7} {r[1]:10} {r[2]:6} {r[3]:5.1f} {r[4]:15.2f} {r[5]:11.2f} {r[6]:18.2f} {r[7]:11.2f}")
+        _print_table(rows)
         print(f"no device loads from YAML: {', '.join(skipped)}")
