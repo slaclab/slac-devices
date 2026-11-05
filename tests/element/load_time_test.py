@@ -1,39 +1,11 @@
-import functools
 import time
 
 import slac_db.config
 
 from slac_devices import element, reader
 
-_COLUMNS = (
-    ("area", "area", 7, "s"),
-    ("device", "device", 10, "s"),
-    ("lines", "lines", 6, "d"),
-    ("kb", "KB", 5, ".1f"),
-    ("yaml_first_ms", "yaml first (ms)", 15, ".2f"),
-    ("yaml_repeat_ms", "yaml repeat (ms)", 16, ".2f"),
-    ("element_first_ms", "element first (ms)", 18, ".2f"),
-    ("element_repeat_ms", "element repeat (ms)", 19, ".2f"),
-)
 
-
-def _area_files_by_size():
-    return sorted(slac_db.config.yaml().glob("*.yaml"), key=lambda p: p.stat().st_size)
-
-
-def _first_working_device(area):
-    for kind, devices in slac_db.get_device(area=area).items():
-        create = getattr(reader, f"create_{kind.removesuffix('s')}", None)
-        if create is None:
-            continue
-        for name in devices:
-            load = functools.partial(create, area=area, name=name)
-            if load() is not None:
-                return name, load
-    return None, None
-
-
-def _time_ms(load, repeat=10):
+def measure_runtime_in_ms(load, repeat=10):
     start = time.perf_counter()
     load()
     first = time.perf_counter() - start
@@ -43,12 +15,24 @@ def _time_ms(load, repeat=10):
     return first * 1000, (time.perf_counter() - start) / repeat * 1000
 
 
-def _measure_area(path):
-    name, yaml_load = _first_working_device(path.stem)
+def get_working_device(area):
+    for kind, devices in slac_db.get_device(area=area).items():
+        create = getattr(reader, f"create_{kind.removesuffix('s')}", None)
+        if create is None:
+            continue
+        for name in devices:
+            load = lambda: create(area=area, name=name)
+            if load() is not None:
+                return name, load
+    return None, None
+
+
+def measure_area_load_time(path):
+    name, yaml_load = get_working_device(path.stem)
     if name is None:
         return None
-    yaml_first, yaml_repeat = _time_ms(yaml_load)
-    element_first, element_repeat = _time_ms(functools.partial(element.Device, name))
+    yaml_first, yaml_repeat = measure_runtime_in_ms(yaml_load)
+    element_first, element_repeat = measure_runtime_in_ms(lambda: element.Device(name))
     return {
         "area": path.stem,
         "device": name,
@@ -61,7 +45,21 @@ def _measure_area(path):
     }
 
 
+def _area_files_by_size():
+    return sorted(slac_db.config.yaml().glob("*.yaml"), key=lambda p: p.stat().st_size)
+
+
 def _print_table(rows):
+    _COLUMNS = (
+        ("area", "area", 7, "s"),
+        ("device", "device", 10, "s"),
+        ("lines", "lines", 6, "d"),
+        ("kb", "KB", 5, ".1f"),
+        ("yaml_first_ms", "yaml first (ms)", 15, ".2f"),
+        ("yaml_repeat_ms", "yaml repeat (ms)", 16, ".2f"),
+        ("element_first_ms", "element first (ms)", 18, ".2f"),
+        ("element_repeat_ms", "element repeat (ms)", 19, ".2f"),
+    )
     print()
     print(
         " ".join(
