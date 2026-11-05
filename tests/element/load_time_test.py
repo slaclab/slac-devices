@@ -44,6 +44,6 @@ def test_load_time(capsys):
         element_ms = _time_ms(lambda: element.Device(name))
         rows.append((name, area, *yaml_ms, *element_ms))
     with capsys.disabled():
-        print(f"\n{'device':9} {'area':6} {'yaml first':>11} {'repeat':>7} {'element first':>14} {'repeat':>7}")
+        print(f"\n{'device':9} {'area':6} {'yaml first (ms)':>15} {'repeat (ms)':>11} {'element first (ms)':>18} {'repeat (ms)':>11}")
         for r in rows:
-            print(f"{r[0]:9} {r[1]:6} {r[2]:11.2f} {r[3]:7.2f} {r[4]:14.2f} {r[5]:7.2f}")
+            print(f"{r[0]:9} {r[1]:6} {r[2]:15.2f} {r[3]:11.2f} {r[4]:18.2f} {r[5]:11.2f}")
