@@ -18,6 +18,7 @@ dependencies = [
     "slac-db @ git+https://github.com/slaclab/slac-db.git@main",
     "slac-tools @ git+https://github.com/slaclab/slac-tools.git@main",
     "slac-timing @ git+https://github.com/slaclab/slac-timing.git@master",
+    "slicops @ git+https://github.com/slaclab/slicops.git@main",
 ]
 description = "Tools to support high level application development at LCLS using Python"
 dynamic = ["version"]
