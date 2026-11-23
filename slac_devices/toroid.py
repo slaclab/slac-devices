@@ -1,8 +1,14 @@
 from typing import Dict
 
-from pydantic import BaseModel, SerializeAsAny, field_validator
+from pydantic import BaseModel, SerializeAsAny, field_validator, ValidationInfo
 
-from slac_devices.device import Device, PVSet, ControlInformation, Metadata
+from slac_devices.device import (
+    Device,
+    PVSet,
+    ControlInformation,
+    Metadata,
+    prepare_device_payloads,
+)
 from slac_timing import Buffer
 from epics import PV
 
@@ -44,14 +50,9 @@ class Toroid(Device):
 
 
 class ToroidCollection(BaseModel):
+    is_virtual: bool = False
     toroids: Dict[str, SerializeAsAny[Toroid]]
 
     @field_validator("toroids", mode="before")
-    def validate_toroids(cls, v) -> Dict[str, Toroid]:
-        for name, toroid in v.items():
-            if isinstance(toroid, Toroid):
-                continue
-            toroid = dict(toroid)
-            toroid.update({"name": name})
-            v.update({name: toroid})
-        return v
+    def validate_toroids(cls, v, info: ValidationInfo) -> Dict[str, Toroid]:
+        return prepare_device_payloads(v, Toroid, info)

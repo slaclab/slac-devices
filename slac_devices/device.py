@@ -1,6 +1,13 @@
 import slac_devices
-from pydantic import SerializeAsAny, ConfigDict, field_validator, field_serializer
-from typing import List, Union, Callable, Dict, Optional
+from pydantic import (
+    SerializeAsAny,
+    ConfigDict,
+    field_validator,
+    field_serializer,
+    model_validator,
+    ValidationInfo,
+)
+from typing import Any, List, Union, Callable, Dict, Optional
 from epics import PV
 from slac_tools import LazyPV
 
@@ -103,20 +110,57 @@ class RemoveDeviceCallbackError(Exception):
         )
 
 
+def _to_virtual_prefix(pvname: str, prefix: str = "VM-") -> str:
+    return pvname if pvname.startswith(prefix) else f"{prefix}{pvname}"
+
 class Device(slac_devices.BaseModel):
     name: str = None
     controls_information: SerializeAsAny[ControlInformation]
     metadata: SerializeAsAny[Metadata]
+    is_virtual: bool = False
 
     def __init__(
         self,
+        is_virtual: bool = False,
         *args,
         **kwargs,
     ):
         super(Device, self).__init__(
             *args,
+            is_virtual=is_virtual
             **kwargs,
         )
+
+    @model_validator(mode="before")
+    @classmethod
+    def _apply_virtual_prefix(cls, data):
+        if not isinstance(data, dict) or not data.get("is_virtual"):
+            return data
+        controls = data.get("controls_information")
+        if controls is None or controls == {}:
+            return data
+        if isinstance(controls, ControlInformation):
+            controls = controls.model_dump()
+        pvs = controls.get("PVs")
+        if pvs is None:
+            return data
+        if isinstance(pvs, PVSet):
+            pvs = pvs.model_dump()
+        converted_pvs = {}
+        for name, pv in pvs.items():
+            if pv is None:
+                converted_pvs[name] = None
+            elif isinstance(pv, LazyPV):
+                converted_pvs[name] = _to_virtual_prefix(pv.pvname)
+            else:
+                converted_pvs[name] = _to_virtual_prefix(pv)
+        return {
+            **data,
+            "controls_information": {
+                **controls,
+                "PVs": converted_pvs,
+            },
+        }
 
     @property
     def area(self) -> str:
@@ -245,22 +289,43 @@ class Device(slac_devices.BaseModel):
         raise NotImplementedError
 
 
+def prepare_device_payloads(
+    v: Dict[str, Any],
+    device_class: type,
+    info: ValidationInfo,
+) -> Dict[str, Any]:
+    """
+    Shared "before" validation for device collections.
+
+    Adds the ``name`` (the dict key) and the collection's ``is_virtual`` flag
+    to each raw device payload so the Device class can be built from it.
+    Already-constructed devices are left untouched.
+
+    The collection must declare ``is_virtual`` *before* its devices field,
+    because ``info.data`` only holds fields that have already been validated.
+    """
+    is_virtual = bool(info.data.get("is_virtual", False))
+    for name, device in v.items():
+        if isinstance(device, device_class):
+            continue
+        device = dict(device)
+        device["name"] = name
+        device.setdefault("is_virtual", is_virtual)
+        v[name] = device
+    return v
+
+
 class DeviceCollection(slac_devices.BaseModel):
+    is_virtual: bool = False
     devices: Dict[str, SerializeAsAny[Device]] = None
 
     @field_validator("devices", mode="before")
-    def _validate_devices(cls, v):
+    def _validate_devices(cls, v, info: ValidationInfo):
         """
-        Add name field to data that will be passed to Device class
+        Add name and is_virtual fields to data that will be passed to Device class
         and then use that dictionary to create each Device.
         """
-        for name, device in v.items():
-            if isinstance(device, Device):
-                continue
-            device = dict(device)
-            device.update({"name": name})
-            v.update({name: device})
-        return v
+        return prepare_device_payloads(v, Device, info)
 
     def __init__(
         self,

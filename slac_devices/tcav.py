@@ -3,6 +3,7 @@ from pydantic import (
     NonNegativeFloat,
     SerializeAsAny,
     field_validator,
+    ValidationInfo,
 )
 from typing import (
     Dict,
@@ -14,6 +15,7 @@ from slac_devices.device import (
     ControlInformation,
     Metadata,
     PVSet,
+    prepare_device_payloads,
 )
 from epics import PV
 
@@ -249,14 +251,9 @@ class TCAV(Device):
 
 
 class TCAVCollection(BaseModel):
+    is_virtual: bool = False
     tcavs: Dict[str, SerializeAsAny[TCAV]]
 
     @field_validator("tcavs", mode="before")
-    def validate_tcavs(cls, v) -> Dict[str, TCAV]:
-        for name, tcav in v.items():
-            if isinstance(tcav, TCAV):
-                continue
-            tcav = dict(tcav)
-            tcav.update({"name": name})
-            v.update({name: tcav})
-        return v
+    def validate_tcavs(cls, v, info: ValidationInfo) -> Dict[str, TCAV]:
+        return prepare_device_payloads(v, TCAV, info)

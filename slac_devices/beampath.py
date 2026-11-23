@@ -35,6 +35,7 @@ class Beampath(slac_devices.BaseModel):
     """
 
     name: str = None
+    is_virtual: bool = False
     areas: Optional[Dict[str, SerializeAsAny[Area]]] = None
 
     def __init__(

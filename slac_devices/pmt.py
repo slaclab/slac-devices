@@ -2,6 +2,7 @@ from pydantic import (
     BaseModel,
     SerializeAsAny,
     field_validator,
+    ValidationInfo,
 )
 from typing import (
     Dict,
@@ -12,6 +13,7 @@ from slac_devices.device import (
     ControlInformation,
     Metadata,
     PVSet,
+    prepare_device_payloads,
 )
 from slac_timing import Buffer
 from epics import PV
@@ -57,14 +59,9 @@ class PMT(Device):
 
 
 class PMTCollection(BaseModel):
+    is_virtual: bool = False
     pmts: Dict[str, SerializeAsAny[PMT]]
 
     @field_validator("pmts", mode="before")
-    def validate_pmts(cls, v) -> Dict[str, PMT]:
-        for name, pmt in v.items():
-            if isinstance(pmt, PMT):
-                continue
-            pmt = dict(pmt)
-            pmt.update({"name": name})
-            v.update({name: pmt})
-        return v
+    def validate_pmts(cls, v, info: ValidationInfo) -> Dict[str, PMT]:
+        return prepare_device_payloads(v, PMT, info)

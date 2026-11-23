@@ -2,6 +2,7 @@ from pydantic import (
     BaseModel,
     SerializeAsAny,
     field_validator,
+    ValidationInfo,
 )
 from typing import (
     Dict,
@@ -14,6 +15,7 @@ from slac_devices.device import (
     ControlInformation,
     Metadata,
     PVSet,
+    prepare_device_payloads,
 )
 from slac_timing import Buffer
 from epics import PV
@@ -81,17 +83,12 @@ class BPM(Device):
 
 
 class BPMCollection(BaseModel):
+    is_virtual: bool = False
     bpms: Dict[str, SerializeAsAny[BPM]]
 
     @field_validator("bpms", mode="before")
-    def validate_bpms(cls, v) -> Dict[str, BPM]:
-        for name, bpm in v.items():
-            if isinstance(bpm, BPM):
-                continue
-            bpm = dict(bpm)
-            bpm.update({"name": name})
-            v.update({name: bpm})
-        return v
+    def validate_bpms(cls, v, info: ValidationInfo) -> Dict[str, BPM]:
+        return prepare_device_payloads(v, BPM, info)
 
     def get_buffer_data(
         self, buffer, suffix: str = "TMIT", **kwargs

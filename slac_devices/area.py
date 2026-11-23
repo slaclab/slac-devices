@@ -40,6 +40,7 @@ def _prune_invalid_devices(
     device_type: str,
     device_data: Dict[str, Any],
     device_class,
+    is_virtual: bool = False,
 ) -> Union[Dict[str, Any], None]:
     if not device_data:
         return None
@@ -62,8 +63,11 @@ def _prune_invalid_devices(
 
         payload_copy = dict(payload)
         payload_copy["name"] = name
+        payload_copy["is_virtual"] = is_virtual
         try:
-            device = device_class(**payload_copy)
+            device = device_class(
+                **payload_copy,
+            )
         except (ValidationError, TypeError, Exception) as field_error:
             print(
                 f"Skipping invalid {device_type} {name} in {area_name}: {field_error}"
@@ -87,6 +91,7 @@ class Area(slac_devices.BaseModel):
     """
 
     name: str = None
+    is_virtual: bool = False
     magnet_collection: Optional[
         Union[
             SerializeAsAny[MagnetCollection],
@@ -199,110 +204,131 @@ class Area(slac_devices.BaseModel):
             return str(info.data["name"])
         return "<unknown>"
 
+    @classmethod
+    def _is_virtual_from_info(cls, info: ValidationInfo) -> bool:
+        return bool(info and info.data and info.data.get("is_virtual", False))
+
     @field_validator(
         "magnet_collection",
         mode="before",
     )
     def validate_magnets(cls, v: Dict[str, Any], info: ValidationInfo):
+        is_virtual = cls._is_virtual_from_info(info)
         valid_magnets = _prune_invalid_devices(
             area_name=cls._area_name_from_info(info),
+            is_virtual=is_virtual,
             device_type="magnets",
             device_data=v,
             device_class=Magnet,
         )
         if not valid_magnets:
             return None
-        return MagnetCollection.model_construct(devices=valid_magnets)
+        return MagnetCollection.model_construct(
+            devices=valid_magnets,
+            is_virtual=is_virtual,
+        )
 
     @field_validator(
         "screen_collection",
         mode="before",
     )
     def validate_screens(cls, v: Dict[str, Any], info: ValidationInfo):
+        is_virtual = cls._is_virtual_from_info(info)
         valid_screens = _prune_invalid_devices(
             area_name=cls._area_name_from_info(info),
+            is_virtual=is_virtual,
             device_type="screens",
             device_data=v,
             device_class=Screen,
         )
         if not valid_screens:
             return None
-        return ScreenCollection.model_construct(devices=valid_screens)
+        return ScreenCollection.model_construct(devices=valid_screens, is_virtual=is_virtual)
 
     @field_validator(
         "wire_collection",
         mode="before",
     )
     def validate_wires(cls, v: Dict[str, Any], info: ValidationInfo):
+        is_virtual = cls._is_virtual_from_info(info)
         valid_wires = _prune_invalid_devices(
             area_name=cls._area_name_from_info(info),
+            is_virtual=is_virtual,
             device_type="wires",
             device_data=v,
             device_class=Wire,
         )
         if not valid_wires:
             return None
-        return WireCollection.model_construct(wires=valid_wires)
+        return WireCollection.model_construct(wires=valid_wires, is_virtual=is_virtual)
 
     @field_validator(
         "bpm_collection",
         mode="before",
     )
     def validate_bpms(cls, v: Dict[str, Any], info: ValidationInfo):
+        is_virtual = cls._is_virtual_from_info(info)
         valid_bpms = _prune_invalid_devices(
             area_name=cls._area_name_from_info(info),
+            is_virtual=is_virtual,
             device_type="bpms",
             device_data=v,
             device_class=BPM,
         )
         if not valid_bpms:
             return None
-        return BPMCollection.model_construct(bpms=valid_bpms)
+        return BPMCollection.model_construct(bpms=valid_bpms, is_virtual=is_virtual)
 
     @field_validator(
         "lblm_collection",
         mode="before",
     )
     def validate_lblms(cls, v: Dict[str, Any], info: ValidationInfo):
+        is_virtual = cls._is_virtual_from_info(info)
         valid_lblms = _prune_invalid_devices(
             area_name=cls._area_name_from_info(info),
+            is_virtual=is_virtual,
             device_type="lblms",
             device_data=v,
             device_class=LBLM,
         )
         if not valid_lblms:
             return None
-        return LBLMCollection.model_construct(lblms=valid_lblms)
+        return LBLMCollection.model_construct(lblms=valid_lblms, is_virtual=is_virtual)
 
     @field_validator(
         "pmt_collection",
         mode="before",
     )
     def validate_pmts(cls, v: Dict[str, Any], info: ValidationInfo):
+        is_virtual = cls._is_virtual_from_info(info)
         valid_pmts = _prune_invalid_devices(
             area_name=cls._area_name_from_info(info),
+            is_virtual=is_virtual,
             device_type="pmts",
             device_data=v,
             device_class=PMT,
         )
         if not valid_pmts:
             return None
-        return PMTCollection.model_construct(pmts=valid_pmts)
+        return PMTCollection.model_construct(pmts=valid_pmts, is_virtual=is_virtual)
 
     @field_validator(
         "tcav_collection",
         mode="before",
     )
     def validate_tcavs(cls, v: Dict[str, Any], info: ValidationInfo):
+        is_virtual = cls._is_virtual_from_info(info)
         valid_tcavs = _prune_invalid_devices(
             area_name=cls._area_name_from_info(info),
+            is_virtual=is_virtual,
             device_type="tcavs",
             device_data=v,
             device_class=TCAV,
         )
         if not valid_tcavs:
             return None
-        return TCAVCollection.model_construct(tcavs=valid_tcavs)
+        return TCAVCollection.model_construct(tcavs=valid_tcavs, is_virtual=is_virtual)
 
     @property
     def magnets(

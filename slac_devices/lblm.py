@@ -5,6 +5,7 @@ from pydantic import (
     field_validator,
     conint,
     ValidationError,
+    ValidationInfo,
 )
 from typing import (
     Dict,
@@ -17,6 +18,7 @@ from slac_devices.device import (
     ControlInformation,
     Metadata,
     PVSet,
+    prepare_device_payloads,
 )
 from slac_timing import Buffer
 from epics import PV
@@ -128,17 +130,12 @@ class LBLM(Device):
 
 
 class LBLMCollection(BaseModel):
+    is_virtual: bool = False
     lblms: Dict[str, SerializeAsAny[LBLM]]
 
     @field_validator("lblms", mode="before")
-    def validate_lblms(cls, v) -> Dict[str, LBLM]:
-        for name, lblm in v.items():
-            if isinstance(lblm, LBLM):
-                continue
-            lblm = dict(lblm)
-            lblm.update({"name": name})
-            v.update({name: lblm})
-        return v
+    def validate_lblms(cls, v, info: ValidationInfo) -> Dict[str, LBLM]:
+        return prepare_device_payloads(v, LBLM, info)
 
     # TODO: can the next two functions get moved out?
     def seconds_since(self, time_to_check: datetime) -> int:

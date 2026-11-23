@@ -4,6 +4,7 @@ from pydantic import (
     Field,
     SerializeAsAny,
     field_validator,
+    ValidationInfo,
 )
 from typing import (
     Dict,
@@ -16,6 +17,7 @@ from slac_devices.device import (
     ControlInformation,
     Metadata,
     PVSet,
+    prepare_device_payloads,
 )
 from slac_timing import Buffer
 from epics import PV
@@ -570,14 +572,9 @@ class Wire(Device):
 
 
 class WireCollection(BaseModel):
+    is_virtual: bool = False
     wires: Dict[str, SerializeAsAny[Wire]]
 
     @field_validator("wires", mode="before")
-    def validate_wires(cls, v) -> Dict[str, Wire]:
-        for name, wire in v.items():
-            if isinstance(wire, Wire):
-                continue
-            wire = dict(wire)
-            wire.update({"name": name})
-            v.update({name: wire})
-        return v
+    def validate_wires(cls, v, info: ValidationInfo) -> Dict[str, Wire]:
+        return prepare_device_payloads(v, Wire, info)

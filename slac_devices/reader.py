@@ -13,7 +13,6 @@ from slac_devices.toroid import Toroid, ToroidCollection
 from slac_devices.area import Area
 from slac_devices.beampath import Beampath
 
-
 _AREA_SUPPORTED_DEVICE_TYPES = {
     "magnets",
     "screens",
@@ -52,7 +51,9 @@ def create_device(name):
 
 
 def create_magnet(
-    area: str = None, name: str = None
+    area: str = None,
+    name: str = None,
+    is_virtual: bool = False,
 ) -> Union[None, Magnet, MagnetCollection]:
     device_data = slac_db.get_device(area=area, device_type="magnets", name=name)
     if not device_data:
@@ -61,16 +62,18 @@ def create_magnet(
         try:
             # this data is not available from YAML directly in this form, so we add it here.
             device_data.update({"name": name})
-            return Magnet(**device_data)
+            return Magnet(**device_data, is_virtual=is_virtual)
         except ValidationError as field_error:
             print(field_error)
             return None
     else:
-        return MagnetCollection(**device_data)
+        return MagnetCollection(**device_data, is_virtual=is_virtual)
 
 
 def create_screen(
-    area: str = None, name: str = None
+    area: str = None,
+    name: str = None,
+    is_virtual: bool = False,
 ) -> Union[None, Screen, ScreenCollection]:
     device_data = slac_db.get_device(area=area, device_type="screens", name=name)
     if not device_data:
@@ -79,16 +82,18 @@ def create_screen(
         try:
             # this data is not available from YAML directly in this form, so we add it here.
             device_data.update({"name": name})
-            return Screen(**device_data)
+            return Screen(**device_data, is_virtual=is_virtual)
         except ValidationError as field_error:
             print(field_error)
             return None
     else:
-        return ScreenCollection(**device_data)
+        return ScreenCollection(**device_data, is_virtual=is_virtual)
 
 
 def create_wire(
-    area: str = None, name: str = None
+    area: str = None,
+    name: str = None,
+    is_virtual: bool = False,
 ) -> Union[None, Wire, WireCollection]:
     device_data = slac_db.get_device(area=area, device_type="wires", name=name)
     if not device_data:
@@ -97,16 +102,18 @@ def create_wire(
         try:
             # this data is not available from YAML directly in this form, so we add it here.
             device_data.update({"name": name})
-            return Wire(**device_data)
+            return Wire(**device_data, is_virtual=is_virtual)
         except ValidationError as field_error:
             print(field_error)
             return None
     else:
-        return WireCollection(**device_data)
+        return WireCollection(**device_data, is_virtual=is_virtual)
 
 
 def create_lblm(
-    area: str = None, name: str = None
+    area: str = None,
+    name: str = None,
+    is_virtual: bool = False,
 ) -> Union[None, LBLM, LBLMCollection]:
     device_data = slac_db.get_device(area=area, device_type="lblms", name=name)
     if not device_data:
@@ -115,15 +122,19 @@ def create_lblm(
         try:
             # this data is not available from YAML directly in this form, so we add it here.
             device_data.update({"name": name})
-            return LBLM(**device_data)
+            return LBLM(**device_data, is_virtual=is_virtual)
         except ValidationError as field_error:
             print(field_error)
             return None
     else:
-        return LBLMCollection(**device_data)
+        return LBLMCollection(**device_data, is_virtual=is_virtual)
 
 
-def create_bpm(area: str = None, name: str = None) -> Union[None, BPM, BPMCollection]:
+def create_bpm(
+    area: str = None,
+    name: str = None,
+    is_virtual: bool = False,
+) -> Union[None, BPM, BPMCollection]:
     device_data = slac_db.get_device(area=area, device_type="bpms", name=name)
     if not device_data:
         return None
@@ -131,16 +142,16 @@ def create_bpm(area: str = None, name: str = None) -> Union[None, BPM, BPMCollec
         try:
             # this data is not available from YAML directly in this form, so we add it here.
             device_data.update({"name": name})
-            return BPM(**device_data)
+            return BPM(**device_data, is_virtual=is_virtual)
         except ValidationError as field_error:
             print(field_error)
             return None
     else:
-        return BPMCollection(**device_data)
+        return BPMCollection(**device_data, is_virtual=is_virtual)
 
 
 def create_tcav(
-    area: str = None, name: str = None
+    area: str = None, name: str = None, is_virtual: bool = False
 ) -> Union[None, TCAV, TCAVCollection]:
     device_data = slac_db.get_device(area=area, device_type="tcavs", name=name)
     if not device_data:
@@ -149,46 +160,52 @@ def create_tcav(
         try:
             # this data is not available from YAML directly in this form, so we add it here.
             device_data.update({"name": name})
-            return TCAV(**device_data)
+            return TCAV(**device_data, is_virtual=is_virtual)
         except ValidationError as field_error:
             print(field_error)
             return None
     else:
-        return TCAVCollection(**device_data)
+        return TCAVCollection(**device_data, is_virtual=is_virtual)
 
 
-def create_pmt(area: str = None, name: str = None) -> Union[None, PMT]:
+def create_pmt(
+    area: str = None, name: str = None, is_virtual: bool = False
+) -> Union[None, PMT]:
     device_data = slac_db.get_device(area=area, device_type="pmts", name=name)
     if not device_data:
         return None
     if name:
         try:
             device_data.update({"name": name})
-            return PMT(**device_data)
+            return PMT(**device_data, is_virtual=is_virtual)
         except ValidationError as field_error:
             print(field_error)
             return None
     else:
-        return PMTCollection(**device_data)
+        return PMTCollection(**device_data, is_virtual=is_virtual)
 
 
-def create_toroid(area: str = None, name: str = None) -> Union[None, Toroid]:
+def create_toroid(
+    area: str = None, name: str = None, is_virtual: bool = False
+) -> Union[None, Toroid]:
     device_data = slac_db.get_device(area=area, device_type="toroids", name=name)
     if not device_data:
         return None
     if name:
         try:
             device_data.update({"name": name})
-            return Toroid(**device_data)
+            return Toroid(**device_data, is_virtual=is_virtual)
         except ValidationError as field_error:
             print(field_error)
             return None
     else:
-        return ToroidCollection(**device_data)
+        return ToroidCollection(**device_data, is_virtual=is_virtual)
 
 
 def create_area(
-    area: str = None, device_types: Optional[set] = None
+    area: str = None,
+    device_types: Optional[set] = None,
+    is_virtual: bool = False,
 ) -> Union[None, Area]:
     """
     Constructs an Area object from YAML device configuration data.
@@ -224,14 +241,14 @@ def create_area(
         filtered_yaml_data[device_type] = device_payload
 
     try:
-        return Area(name=area, **filtered_yaml_data)
+        return Area(name=area, is_virtual=is_virtual, **filtered_yaml_data)
     except ValidationError as field_error:
         print("Error trying to create area", area, " : ", field_error)
         return None
 
 
 def create_beampath(
-    beampath: str = None, device_types: Optional[set] = None
+    beampath: str = None, device_types: Optional[set] = None, is_virtual: bool = False
 ) -> Union[None, Beampath]:
     """
     Constructs a Beampath object from a YAML configuration file.
@@ -256,10 +273,14 @@ def create_beampath(
     areas = {}
     try:
         for area in areas_to_create:
-            created_area = create_area(area=area, device_types=device_types)
+            created_area = create_area(
+                area=area,
+                device_types=device_types,
+                is_virtual=is_virtual,
+            )
             if created_area:
                 areas[area] = created_area
-        return Beampath(name=beampath, **{"areas": areas})
+        return Beampath(name=beampath, is_virtual=is_virtual, **{"areas": areas})
     except KeyError as ke:
         raise KeyError(
             "Area: ",
