@@ -1,4 +1,9 @@
-from slac_devices.reader import create_magnet, create_area
+from slac_devices.reader import (
+    create_area,
+    create_device,
+    create_magnet,
+    create_many_devices,
+)
 from slac_devices.magnet import Magnet, MagnetCollection
 from slac_devices.area import Area
 import unittest
@@ -165,3 +170,50 @@ class TestAreaReader(unittest.TestCase):
         self.assertIsInstance(result, Area)
         self.assertIsNotNone(result.tcavs)
         self.assertIn("TCAV0", result.tcavs)
+
+
+class TestCreateManyDevices(unittest.TestCase):
+    def setUp(self) -> None:
+        self.ctrl_options_patch = patch("epics.PV.get_ctrlvars", new_callable=MagicMock)
+        self.mock_ctrl_options = self.ctrl_options_patch.start()
+        self.mock_ctrl_options.return_value = {"enum_strs": tuple("READY")}
+        return super().setUp()
+
+    def tearDown(self) -> None:
+        self.ctrl_options_patch.stop()
+        return super().tearDown()
+
+    def test_creates_devices_of_mixed_types_in_input_order(self):
+        from slac_devices.bpm import BPM
+        from slac_devices.lblm import LBLM
+
+        result = create_many_devices(["LBLM01A", "SOL1B", "BPMDG001"])
+        self.assertEqual(list(result), ["LBLM01A", "SOL1B", "BPMDG001"])
+        self.assertIsInstance(result["LBLM01A"], LBLM)
+        self.assertIsInstance(result["SOL1B"], Magnet)
+        self.assertIsInstance(result["BPMDG001"], BPM)
+
+    def test_unknown_names_are_omitted(self):
+        result = create_many_devices(["BAD-DEVICE-NAME", "SOL1B"])
+        self.assertEqual(list(result), ["SOL1B"])
+
+    def test_devices_failing_validation_are_omitted(self):
+        # PMT755 has no qdcraw PV in slac_db.
+        result = create_many_devices(["PMT755", "SOL1B"])
+        self.assertEqual(list(result), ["SOL1B"])
+
+    def test_duplicates_created_once(self):
+        with patch(
+            "slac_devices.reader.create_device", wraps=create_device
+        ) as mock_create:
+            result = create_many_devices(["SOL1B", "SOL1B"])
+        self.assertEqual(list(result), ["SOL1B"])
+        mock_create.assert_called_once_with("SOL1B")
+
+    def test_empty_input_returns_empty_dict(self):
+        self.assertEqual(create_many_devices([]), {})
+
+
+class TestCreateDevice(unittest.TestCase):
+    def test_unknown_name_returns_none(self):
+        self.assertIsNone(create_device("BAD-DEVICE-NAME"))
