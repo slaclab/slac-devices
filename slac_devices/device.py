@@ -127,7 +127,7 @@ class Device(slac_devices.BaseModel):
     ):
         super(Device, self).__init__(
             *args,
-            is_virtual=is_virtual
+            is_virtual=is_virtual,
             **kwargs,
         )
 
