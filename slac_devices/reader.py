@@ -36,7 +36,7 @@ _CONSTRUCTOR_MAP = {
 }
 
 
-def create_device(name):
+def create_device(name, is_virtual: bool = False):
     data = slac_db.db_to_yaml.get_device(name)
     if data is None:
         print(f"Unrecognized name for device={name}")
@@ -44,7 +44,7 @@ def create_device(name):
     device_type = data.pop("yaml_type")
     constructor = _CONSTRUCTOR_MAP[device_type]
     try:
-        return constructor(**data)
+        return constructor(is_virtual=is_virtual, **data)
     except ValidationError as field_error:
         print(field_error)
         return None
